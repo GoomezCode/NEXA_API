@@ -1,0 +1,42 @@
+name: nexa-api
+
+services:
+  api:
+    build:
+      context: .
+    image: nexa-api:local
+    ports:
+      - "8000:8000"
+    env_file:
+      # `raw` preserva os `$` do ADMIN_PASSWORD_HASH (argon2id). Requer
+      # Docker Compose >= 2.24; sem ele o Compose interpolaria o hash.
+      - path: .env
+        format: raw
+    environment:
+      # DOCKER_OLLAMA_URL evita conflito com o OLLAMA_URL do .env (localhost).
+      # Padrão: Ollama no host; com o perfil `ollama`: http://ollama:11434.
+      OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
+      UVICORN_WORKERS: "1"
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-30}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    stop_grace_period: 45s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # Perfil opcional: `docker compose --profile ollama up --build`
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama-data:

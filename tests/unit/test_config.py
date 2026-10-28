@@ -92,6 +92,11 @@ def test_production_accepts_strong_secret() -> None:
     assert settings.is_production is True
 
 
+def test_shutdown_timeout_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        make_settings(shutdown_timeout_seconds=0)
+
+
 def test_multiple_workers_require_redis() -> None:
     with pytest.raises(ValidationError):
         make_settings(uvicorn_workers=2)

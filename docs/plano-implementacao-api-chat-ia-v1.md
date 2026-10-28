@@ -635,13 +635,18 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] `Dockerfile` multi-stage (não-root), `HEALTHCHECK` em `/health`.
-- [ ] `docker-compose.yml` com API (+ perfil opcional Ollama).
-- [ ] `SIGTERM` com shutdown gracioso e prazo máximo; streams encerram com `done`.
-- [ ] `README` com setup, variáveis, exemplos `curl` (JSON e SSE via `curl -N`).
-- [ ] `Makefile`: `setup`, `run`, `test`, `lint`, `type`, `cov`, `docker-build`, `docker-up`.
+- [x] `Dockerfile` multi-stage (não-root), `HEALTHCHECK` em `/health`.
+- [x] `docker-compose.yml` com API (+ perfil opcional Ollama).
+- [x] `SIGTERM` com shutdown gracioso e prazo máximo (`SHUTDOWN_TIMEOUT_SECONDS`); streams encerram com `done`.
+- [x] `README` com setup, variáveis, exemplos `curl` (JSON e SSE via `curl -N`).
+- [x] `Makefile`: `setup`, `run`, `test`, `lint`, `type`, `cov`, `docker-build`, `docker-up`, `docker-up-ollama`, `docker-down`.
 
 **Gate:** imagem sobe, healthcheck ok, shutdown não derruba streams abruptamente.
+
+> **Concluída em 28/10/2026:** 415 testes, cobertura de 99% em `app/`, Ruff e
+> mypy verdes; imagem multi-stage não-root com `HEALTHCHECK`, compose com perfil
+> Ollama, `python -m app` como entrada de produção e prazo de shutdown
+> configurável (SIGTERM aguarda o `done` dos streams).
 
 ---
 

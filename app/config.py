@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     login_max_attempts: int = Field(default=5, ge=1)
     login_lock_minutes: int = Field(default=15, ge=1)
     max_request_body_bytes: int = Field(default=DEFAULT_MAX_REQUEST_BODY_BYTES, gt=0)
+    shutdown_timeout_seconds: float = Field(default=30.0, gt=0)
     trusted_proxies: Annotated[list[str], NoDecode] = Field(default_factory=list)
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:5173"]
