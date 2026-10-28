@@ -32,6 +32,20 @@ class UsageInfo(BaseModel):
 class UsageResponse(UsageInfo):
     """Resposta de `GET /usage`, com o papel do chamador."""
 
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "role": "guest",
+                "daily_limit": 10,
+                "daily_remaining": 7,
+                "per_minute_limit": 3,
+                "per_minute_remaining": 2,
+                "resets_at": "2026-10-29T00:00:00Z",
+            }
+        },
+    )
+
     role: Role
 
 

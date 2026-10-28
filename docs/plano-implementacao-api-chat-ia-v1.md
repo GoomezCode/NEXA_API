@@ -654,14 +654,19 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] Preencher a matriz CA → teste (anexo A) e fechar lacunas.
-- [ ] Cobertura ≥ 80% nas camadas exigidas; relatório no CI.
-- [ ] Revisão do OpenAPI: todos os endpoints, exemplos, dois `content` no chat.
-- [ ] Teste de contrato do OpenAPI (snapshot) para evitar regressão.
-- [ ] Rodada manual de aceitação com Ollama real.
-- [ ] Checklist de release e tag `v1.0.0`.
+- [x] Preencher a matriz CA → teste (anexo A) e fechar lacunas — [`matriz-ca-testes.md`](matriz-ca-testes.md).
+- [x] Cobertura ≥ 80% nas camadas exigidas; relatório no CI (`coverage.xml` como artefato).
+- [x] Revisão do OpenAPI: todos os endpoints, exemplos, dois `content` no chat e esquema `HTTPBearer`.
+- [x] Teste de contrato do OpenAPI (snapshot em `tests/snapshots/openapi.json`).
+- [x] Rodada manual de aceitação com Ollama real — [`aceitacao-manual-2026-10-28.md`](aceitacao-manual-2026-10-28.md).
+- [x] Checklist de release e tag `v1.0.0` — [`checklist-release.md`](checklist-release.md).
 
 **Gate:** CA-01..CA-23 verdes; DoD da seção 12 completo.
+
+> **Concluída em 28/10/2026:** 424 testes, cobertura de 99% em `app/`, Ruff e
+> mypy verdes; matriz CA → teste preenchida, contrato do OpenAPI versionado,
+> aceitação manual registrada com Ollama real (`qwen3-coder:latest`) e release
+> `v1.0.0` marcada.
 
 ---
 
@@ -858,16 +863,17 @@ Regras:
 
 | Requisito | Módulo | Teste |
 |---|---|---|
-| RF-AUT-01..10 | `core/auth.py`, `core/security.py`, `api/auth.py` | `tests/integration/test_auth.py` |
-| RF-CHAT-01..12 | `api/chat.py`, `ai/*`, `schemas/chat.py` | `tests/integration/test_chat_*.py`, `tests/e2e/test_sse.py` |
-| RF-USO-01..12 | `core/usage_store.py`, `core/rate_limit.py` | `tests/unit/test_usage_store.py`, `tests/integration/test_usage.py` |
-| RF-ADM-01..05 | `api/admin.py`, `core/stats.py` | `tests/integration/test_admin.py` |
-| RF-SIS-01..04 | `api/system.py`, `core/middleware.py` | `tests/integration/test_system.py` |
-| RNF-SEG-* | `core/middleware.py`, `core/security.py`, `config.py` | `tests/integration/test_security.py` |
-| RNF-OBS-* | `core/logging.py` | `tests/unit/test_logging.py` |
-| RNF-CON-* | `ai/*`, `main.py` | `tests/integration/test_resilience.py` |
-| RNF-MAN-* | estrutura + CI | pipeline |
-| RNF-POR-* | `Dockerfile`, `docker-compose.yml` | build no CI |
+| RF-AUT-01..10 | `core/auth.py`, `core/security.py`, `api/auth.py`, `api/deps.py` | `tests/integration/test_auth.py`, `tests/unit/test_security.py` |
+| RF-CHAT-01..12 | `api/chat.py`, `ai/*`, `core/sse.py`, `core/chat_stream.py`, `schemas/chat.py` | `tests/integration/test_chat.py`, `tests/unit/test_chat_stream.py`, `tests/unit/test_ollama.py`, `tests/unit/test_sse.py` |
+| RF-USO-01..12 | `core/usage_store.py`, `core/rate_limit.py`, `core/usage.py` | `tests/unit/test_usage_store.py`, `tests/unit/test_rate_limit.py`, `tests/unit/test_usage.py`, `tests/integration/test_usage_api.py` |
+| RF-ADM-01..05 | `api/admin.py`, `core/stats.py` | `tests/integration/test_admin.py`, `tests/unit/test_stats.py` |
+| RF-SIS-01..04 | `api/system.py`, `core/middleware.py`, `core/errors.py` | `tests/integration/test_system.py`, `tests/unit/test_errors.py`, `tests/unit/test_middleware.py` |
+| RNF-SEG-* | `core/middleware.py`, `core/security.py`, `core/ip.py`, `config.py` | `tests/integration/test_system.py`, `tests/integration/test_auth.py`, `tests/unit/test_middleware.py`, `tests/unit/test_ip.py` |
+| RNF-OBS-* | `core/logging.py`, `core/middleware.py` | `tests/unit/test_logging.py`, `tests/integration/test_observability.py` |
+| RNF-CON-* | `ai/*`, `core/chat_stream.py`, `main.py`, `__main__.py` | `tests/unit/test_ollama.py`, `tests/unit/test_chat_stream.py`, `tests/unit/test_entrypoint.py`, `tests/integration/test_system.py` |
+| RNF-MAN-* | estrutura + CI | `.github/workflows/ci.yml`, `pyproject.toml`, `requirements*.txt` |
+| RNF-POR-* | `Dockerfile`, `docker-compose.yml`, `app/__main__.py` | `tests/unit/test_entrypoint.py`, `docker compose config`, build no CI |
+| Contrato OpenAPI | `main.py`, `api/*`, `schemas/*` | `tests/integration/test_openapi_contract.py`, `tests/snapshots/openapi.json` |
 
 ### B. Comandos previstos (`Makefile`)
 

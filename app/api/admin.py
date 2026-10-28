@@ -27,6 +27,7 @@ router = APIRouter(
     prefix="/api/v1/admin",
     tags=["Administração"],
     dependencies=[Depends(require_admin)],
+    responses={status.HTTP_401_UNAUTHORIZED: {"description": "Token ausente ou inválido."}},
 )
 logger = get_logger("nexa.admin")
 

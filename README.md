@@ -4,6 +4,8 @@ Backend do chat de IA via web, em **Python/FastAPI**, sem banco de dados.
 
 - **SRS:** [`docs/srs-api-chat-ia-v1.md`](docs/srs-api-chat-ia-v1.md) (v1.1)
 - **Plano de implementação:** [`docs/plano-implementacao-api-chat-ia-v1.md`](docs/plano-implementacao-api-chat-ia-v1.md) (v1.1)
+- **Matriz CA → teste:** [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md)
+- **Checklist de release:** [`docs/checklist-release.md`](docs/checklist-release.md) (v1.0.0)
 
 ## Requisitos
 
@@ -200,8 +202,15 @@ curl -sS -X POST http://localhost:8000/api/v1/admin/usage/reset \
 make lint   # ruff check + ruff format --check
 make type   # mypy strict
 make test   # pytest
-make cov    # pytest + cobertura (mínimo 80%)
+make cov    # pytest + cobertura (mínimo 80%, gera coverage.xml)
 make check  # tudo acima
+```
+
+O contrato do OpenAPI é versionado em `tests/snapshots/openapi.json`. Após uma
+mudança intencional, regenere e revise o diff:
+
+```bash
+UPDATE_OPENAPI=1 pytest tests/integration/test_openapi_contract.py
 ```
 
 ## Estrutura
@@ -226,4 +235,14 @@ tests/
 A implementação segue o plano: **F0 Fundação**, **F1 Autenticação**,
 **F2 Provedores de IA**, **F3 Cotas e limites**, **F4 Chat JSON**,
 **F5 Streaming SSE**, **F6 Administração**, **F7 Hardening**,
-**F8 Observabilidade** e **F9 Empacotamento** (concluídas); F10 Conformidade.
+**F8 Observabilidade**, **F9 Empacotamento** e **F10 Conformidade**
+(concluídas).
+
+## Release
+
+A entrega `v1.0.0` (API reporta `1.1.0`, acompanhando o SRS v1.1) tem os
+critérios CA-01..CA-23 rastreados em [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md)
+e a rodada manual com Ollama real em
+[`docs/aceitacao-manual-2026-10-28.md`](docs/aceitacao-manual-2026-10-28.md).
+Pendências e limitações conhecidas estão em
+[`docs/checklist-release.md`](docs/checklist-release.md).

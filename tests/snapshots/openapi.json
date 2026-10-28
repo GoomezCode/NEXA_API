@@ -1,0 +1,1138 @@
+{
+  "components": {
+    "schemas": {
+      "AiStatusResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /admin/ai/status` (nunca expõe chaves).",
+        "example": {
+          "available": true,
+          "checked_at": "2026-10-28T14:30:00Z",
+          "model": "llama3.1",
+          "provider": "ollama"
+        },
+        "properties": {
+          "available": {
+            "description": "Resultado da última verificação de saúde.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "checked_at": {
+            "description": "Instante da verificação, em UTC.",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "model": {
+            "description": "Modelo configurado.",
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "description": "Nome do provedor ativo.",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "available",
+          "checked_at"
+        ],
+        "title": "AiStatusResponse",
+        "type": "object"
+      },
+      "AssistantMessage": {
+        "additionalProperties": false,
+        "description": "Mensagem de resposta do assistente.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "AssistantMessage",
+        "type": "object"
+      },
+      "ChatMessageInput": {
+        "additionalProperties": false,
+        "description": "Mensagem enviada pelo cliente.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatMessageInput",
+        "type": "object"
+      },
+      "ChatRequest": {
+        "additionalProperties": false,
+        "description": "Corpo de `POST /chat` (sem `system_prompt` nem parâmetros de geração).",
+        "example": {
+          "messages": [
+            {
+              "content": "Explique SSE em uma frase.",
+              "role": "user"
+            }
+          ],
+          "stream": false
+        },
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageInput"
+            },
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "stream": {
+            "default": true,
+            "title": "Stream",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "ChatRequest",
+        "type": "object"
+      },
+      "ChatResponse": {
+        "additionalProperties": false,
+        "description": "Resposta completa do chat (`stream = false`).",
+        "example": {
+          "finish_reason": "stop",
+          "message": {
+            "content": "SSE envia eventos incrementais.",
+            "role": "assistant"
+          },
+          "model": "llama3.1",
+          "provider": "ollama",
+          "usage": {
+            "daily_limit": 10,
+            "daily_remaining": 9,
+            "per_minute_limit": 3,
+            "per_minute_remaining": 2,
+            "resets_at": "2026-10-29T00:00:00Z"
+          }
+        },
+        "properties": {
+          "finish_reason": {
+            "enum": [
+              "stop",
+              "length",
+              "timeout"
+            ],
+            "title": "Finish Reason",
+            "type": "string"
+          },
+          "message": {
+            "$ref": "#/components/schemas/AssistantMessage"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageInfo"
+          }
+        },
+        "required": [
+          "message",
+          "provider",
+          "model",
+          "finish_reason",
+          "usage"
+        ],
+        "title": "ChatResponse",
+        "type": "object"
+      },
+      "GuestEntry": {
+        "additionalProperties": false,
+        "description": "Guest ativo em memória (RF-ADM-05).",
+        "properties": {
+          "daily_limit": {
+            "description": "Cota diária do guest.",
+            "title": "Daily Limit",
+            "type": "integer"
+          },
+          "daily_used": {
+            "description": "Mensagens consumidas hoje.",
+            "title": "Daily Used",
+            "type": "integer"
+          },
+          "gid": {
+            "description": "Identificador do guest (usado no reset).",
+            "title": "Gid",
+            "type": "string"
+          },
+          "ip": {
+            "description": "IP da última requisição.",
+            "title": "Ip",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "description": "Última atividade, em UTC.",
+            "title": "Last Seen At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gid",
+          "ip",
+          "daily_used",
+          "daily_limit",
+          "last_seen_at"
+        ],
+        "title": "GuestEntry",
+        "type": "object"
+      },
+      "GuestTokenResponse": {
+        "additionalProperties": false,
+        "description": "Resposta da emissão de token de convidado.",
+        "example": {
+          "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "expires_in": 86400,
+          "role": "guest",
+          "token_type": "bearer",
+          "usage": {
+            "daily_limit": 10,
+            "daily_remaining": 10,
+            "per_minute_limit": 3,
+            "per_minute_remaining": 3,
+            "resets_at": "2026-10-29T00:00:00Z"
+          }
+        },
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "role": {
+            "const": "guest",
+            "default": "guest",
+            "title": "Role",
+            "type": "string"
+          },
+          "token_type": {
+            "const": "bearer",
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageInfo"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "usage"
+        ],
+        "title": "GuestTokenResponse",
+        "type": "object"
+      },
+      "GuestsResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /admin/guests`.",
+        "example": {
+          "guests": [
+            {
+              "daily_limit": 10,
+              "daily_used": 4,
+              "gid": "6f1c9a3e-1b2d-4c5f-8a90-0123456789ab",
+              "ip": "203.0.113.10",
+              "last_seen_at": "2026-10-28T14:25:00Z"
+            }
+          ],
+          "ip_usage": [
+            {
+              "daily_limit": 30,
+              "daily_used": 12,
+              "ip": "203.0.113.10"
+            }
+          ]
+        },
+        "properties": {
+          "guests": {
+            "items": {
+              "$ref": "#/components/schemas/GuestEntry"
+            },
+            "title": "Guests",
+            "type": "array"
+          },
+          "ip_usage": {
+            "items": {
+              "$ref": "#/components/schemas/IpUsageEntry"
+            },
+            "title": "Ip Usage",
+            "type": "array"
+          }
+        },
+        "required": [
+          "guests",
+          "ip_usage"
+        ],
+        "title": "GuestsResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /health`.",
+        "example": {
+          "request_id": "b1f4c7e2-6f0f-4c39-9e57-6a1f0f0b8f4d",
+          "status": "ok",
+          "version": "1.1.0"
+        },
+        "properties": {
+          "request_id": {
+            "description": "Identificador da requisição (RF-SIS-03).",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "description": "Versão da API.",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "request_id"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "IpUsageEntry": {
+        "additionalProperties": false,
+        "description": "Uso diário agregado por IP.",
+        "properties": {
+          "daily_limit": {
+            "description": "Cota diária por IP.",
+            "title": "Daily Limit",
+            "type": "integer"
+          },
+          "daily_used": {
+            "description": "Mensagens consumidas hoje por este IP.",
+            "title": "Daily Used",
+            "type": "integer"
+          },
+          "ip": {
+            "description": "IP do guest.",
+            "title": "Ip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ip",
+          "daily_used",
+          "daily_limit"
+        ],
+        "title": "IpUsageEntry",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "additionalProperties": false,
+        "description": "Credenciais do administrador.",
+        "example": {
+          "password": "senha-do-administrador",
+          "username": "admin"
+        },
+        "properties": {
+          "password": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /health/ready`.",
+        "example": {
+          "provider": "ollama",
+          "request_id": "b1f4c7e2-6f0f-4c39-9e57-6a1f0f0b8f4d",
+          "status": "ok"
+        },
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Provedor de IA configurado.",
+            "title": "Provider"
+          },
+          "request_id": {
+            "description": "Identificador da requisição (RF-SIS-03).",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "request_id"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "ResetRequest": {
+        "additionalProperties": false,
+        "description": "Corpo de `POST /admin/usage/reset` (RF-ADM-04, RF-USO-10).",
+        "example": {
+          "scope": "gid",
+          "value": "6f1c9a3e-1b2d-4c5f-8a90-0123456789ab"
+        },
+        "properties": {
+          "scope": {
+            "description": "Alvo do reset: `gid` ou `ip`.",
+            "enum": [
+              "gid",
+              "ip"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "value": {
+            "description": "`gid` ou IP cuja cota diária será zerada.",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "value"
+        ],
+        "title": "ResetRequest",
+        "type": "object"
+      },
+      "StatsResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /admin/stats`.",
+        "example": {
+          "avg_response_seconds": 3.42,
+          "chat_requests_total": 128,
+          "guest_distinct": 14,
+          "provider_errors_total": 2,
+          "rate_limited_total": 7,
+          "since": "2026-10-28T10:00:00Z"
+        },
+        "properties": {
+          "avg_response_seconds": {
+            "description": "Duração média das respostas, em segundos.",
+            "title": "Avg Response Seconds",
+            "type": "number"
+          },
+          "chat_requests_total": {
+            "description": "Requisições de chat recebidas.",
+            "title": "Chat Requests Total",
+            "type": "integer"
+          },
+          "guest_distinct": {
+            "description": "Guests distintos desde o boot.",
+            "title": "Guest Distinct",
+            "type": "integer"
+          },
+          "provider_errors_total": {
+            "description": "Falhas do provedor de IA.",
+            "title": "Provider Errors Total",
+            "type": "integer"
+          },
+          "rate_limited_total": {
+            "description": "Mensagens barradas por limite.",
+            "title": "Rate Limited Total",
+            "type": "integer"
+          },
+          "since": {
+            "description": "Início da contagem (boot da API), em UTC.",
+            "title": "Since",
+            "type": "string"
+          }
+        },
+        "required": [
+          "since",
+          "chat_requests_total",
+          "guest_distinct",
+          "rate_limited_total",
+          "provider_errors_total",
+          "avg_response_seconds"
+        ],
+        "title": "StatsResponse",
+        "type": "object"
+      },
+      "TokenResponse": {
+        "additionalProperties": false,
+        "description": "Resposta do login do administrador.",
+        "example": {
+          "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "expires_in": 3600,
+          "role": "admin",
+          "token_type": "bearer"
+        },
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "guest"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "token_type": {
+            "const": "bearer",
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "role"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
+      "UsageInfo": {
+        "additionalProperties": false,
+        "description": "Limites e uso restante do chamador (SRS §3.7.2).",
+        "properties": {
+          "daily_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cota diária; `null` para o admin.",
+            "title": "Daily Limit"
+          },
+          "daily_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Uso diário restante; `null` para o admin.",
+            "title": "Daily Remaining"
+          },
+          "per_minute_limit": {
+            "description": "Limite por minuto.",
+            "title": "Per Minute Limit",
+            "type": "integer"
+          },
+          "per_minute_remaining": {
+            "description": "Requisições restantes no minuto.",
+            "title": "Per Minute Remaining",
+            "type": "integer"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Próximo reset da cota diária (ISO 8601 UTC).",
+            "title": "Resets At"
+          }
+        },
+        "required": [
+          "daily_limit",
+          "daily_remaining",
+          "per_minute_limit",
+          "per_minute_remaining"
+        ],
+        "title": "UsageInfo",
+        "type": "object"
+      },
+      "UsageResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /usage`, com o papel do chamador.",
+        "example": {
+          "daily_limit": 10,
+          "daily_remaining": 7,
+          "per_minute_limit": 3,
+          "per_minute_remaining": 2,
+          "resets_at": "2026-10-29T00:00:00Z",
+          "role": "guest"
+        },
+        "properties": {
+          "daily_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cota diária; `null` para o admin.",
+            "title": "Daily Limit"
+          },
+          "daily_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Uso diário restante; `null` para o admin.",
+            "title": "Daily Remaining"
+          },
+          "per_minute_limit": {
+            "description": "Limite por minuto.",
+            "title": "Per Minute Limit",
+            "type": "integer"
+          },
+          "per_minute_remaining": {
+            "description": "Requisições restantes no minuto.",
+            "title": "Per Minute Remaining",
+            "type": "integer"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Próximo reset da cota diária (ISO 8601 UTC).",
+            "title": "Resets At"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "guest"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "daily_limit",
+          "daily_remaining",
+          "per_minute_limit",
+          "per_minute_remaining",
+          "role"
+        ],
+        "title": "UsageResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "description": "JWT emitido por `/api/v1/auth/login` ou `/api/v1/auth/guest`.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "\nAPI do chat de IA via web, conforme o SRS v1.1.\n\n- Autenticação por JWT (`admin` e `guest`).\n- Chat com resposta JSON ou streaming SSE.\n- Cotas em memória por convidado e por IP.\n- Administração: estatísticas, status do provedor, guests e reset de cota.\n- Erros no padrão Problem Details (`application/problem+json`).\n",
+    "title": "Nexa API",
+    "version": "1.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/admin/ai/status": {
+      "get": {
+        "description": "Informa provedor, modelo e disponibilidade. Chaves e segredos nunca são expostos.",
+        "operationId": "ai_status_api_v1_admin_ai_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Status do provedor de IA",
+        "tags": [
+          "Administração"
+        ]
+      }
+    },
+    "/api/v1/admin/guests": {
+      "get": {
+        "description": "Lista os guests conhecidos em memória (para obter o `gid` usado no reset) e o uso diário agregado por IP.",
+        "operationId": "list_guests_api_v1_admin_guests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Guests ativos e uso por IP",
+        "tags": [
+          "Administração"
+        ]
+      }
+    },
+    "/api/v1/admin/stats": {
+      "get": {
+        "description": "Contadores em memória desde a última inicialização: requisições de chat, guests distintos, barrados por limite, erros do provedor e duração média.",
+        "operationId": "get_stats_api_v1_admin_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Estatísticas de uso",
+        "tags": [
+          "Administração"
+        ]
+      }
+    },
+    "/api/v1/admin/usage/reset": {
+      "post": {
+        "description": "Zera a cota diária do `gid` ou do IP informado. Alvo inexistente retorna `404` (`not_found`).",
+        "operationId": "reset_usage_api_v1_admin_usage_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Cota zerada."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "404": {
+            "description": "`gid` ou IP sem cota ativa."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Zera a cota de um guest ou IP",
+        "tags": [
+          "Administração"
+        ]
+      }
+    },
+    "/api/v1/auth/guest": {
+      "post": {
+        "description": "Cria um `gid` (UUID v4) e devolve um token com papel `guest` e o uso inicial. A emissão é limitada por IP.",
+        "operationId": "guest_token_api_v1_auth_guest_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuestTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "429": {
+            "description": "Limite de emissão por IP excedido."
+          }
+        },
+        "summary": "Emite token de convidado",
+        "tags": [
+          "Autenticação"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "description": "Valida usuário e senha e devolve um access token JWT.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Credenciais inválidas."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Login temporariamente bloqueado."
+          }
+        },
+        "summary": "Login do administrador",
+        "tags": [
+          "Autenticação"
+        ]
+      }
+    },
+    "/api/v1/chat": {
+      "post": {
+        "description": "Recebe o contexto completo e devolve a resposta do modelo. Com `stream = false` a resposta é um JSON completo; com `stream = true` (padrão) a resposta é um fluxo SSE com `data:` por trecho, evento `done` no fim e evento `error` em falhas após o início (3.7.3).",
+        "operationId": "chat_api_v1_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              },
+              "text/event-stream": {
+                "example": "data: {\"content\":\"SSE é \"}\n\nevent: done\ndata: {\"status\":\"complete\",\"finish_reason\":\"stop\",\"usage\":{\"daily_limit\":10,\"daily_remaining\":6,\"per_minute_limit\":3,\"per_minute_remaining\":2,\"resets_at\":\"2026-10-29T00:00:00Z\"}}\n\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Resposta JSON (`stream = false`) ou fluxo SSE (`stream = true`)."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "422": {
+            "description": "Contexto inválido ou acima dos limites do papel."
+          },
+          "429": {
+            "description": "Cota ou limite por minuto excedido."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Envia mensagens ao provedor de IA",
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
+    "/api/v1/usage": {
+      "get": {
+        "description": "Retorna a cota diária (apenas guest), o limite por minuto e o uso restante do chamador. Para o admin, os campos diários são `null`.",
+        "operationId": "get_usage_api_v1_usage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Limites e uso restante",
+        "tags": [
+          "Uso"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Indica que o processo está no ar. Público e sem dependências externas.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Saúde da API",
+        "tags": [
+          "Sistema"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "description": "Verifica o provedor de IA configurado. Sem provedor registrado (fase de fundação), responde `200`.",
+        "operationId": "readiness_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Prontidão da API",
+        "tags": [
+          "Sistema"
+        ]
+      }
+    }
+  }
+}

@@ -13,7 +13,10 @@ from app.schemas.usage import UsageInfo
 class LoginRequest(BaseModel):
     """Credenciais do administrador."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"example": {"username": "admin", "password": "senha-do-administrador"}},
+    )
 
     username: str = Field(min_length=1, max_length=256)
     password: str = Field(min_length=1, max_length=1024, repr=False)

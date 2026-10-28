@@ -29,7 +29,15 @@ class ChatMessageInput(BaseModel):
 class ChatRequest(BaseModel):
     """Corpo de `POST /chat` (sem `system_prompt` nem parâmetros de geração)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "messages": [{"role": "user", "content": "Explique SSE em uma frase."}],
+                "stream": False,
+            }
+        },
+    )
 
     messages: list[ChatMessageInput] = Field(min_length=1)
     stream: bool = True
@@ -54,7 +62,24 @@ class AssistantMessage(BaseModel):
 class ChatResponse(BaseModel):
     """Resposta completa do chat (`stream = false`)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "message": {"role": "assistant", "content": "SSE envia eventos incrementais."},
+                "provider": "ollama",
+                "model": "llama3.1",
+                "finish_reason": "stop",
+                "usage": {
+                    "daily_limit": 10,
+                    "daily_remaining": 9,
+                    "per_minute_limit": 3,
+                    "per_minute_remaining": 2,
+                    "resets_at": "2026-10-29T00:00:00Z",
+                },
+            }
+        },
+    )
 
     message: AssistantMessage
     provider: str

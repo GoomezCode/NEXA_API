@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 
 from app.api.deps import CurrentUser, get_current_user
 from app.config import Settings
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/v1", tags=["Uso"])
         "Retorna a cota diária (apenas guest), o limite por minuto e o uso "
         "restante do chamador. Para o admin, os campos diários são `null`."
     ),
+    responses={status.HTTP_401_UNAUTHORIZED: {"description": "Token ausente ou inválido."}},
 )
 async def get_usage(
     request: Request,

@@ -636,6 +636,39 @@ def test_cors_exposes_quota_headers_on_429(clock: FakeClock) -> None:
     assert blocked.headers["retry-after"]
 
 
+def test_chat_does_not_log_content_at_debug_level(
+    clock: FakeClock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings = make_settings(log_level="DEBUG")
+    secret = "SEGREDO-EM-DEBUG-321"
+    with client_for(settings, clock) as (client, _):
+        token = _guest_token(client)
+        capsys.readouterr()
+
+        response = _chat(client, token, [{"role": "user", "content": secret}])
+
+        captured = capsys.readouterr()
+    assert response.status_code == 200
+    assert secret not in captured.out
+    assert secret not in captured.err
+
+
+def test_other_endpoints_keep_working_when_the_provider_fails(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    token = _guest_token(client)
+    provider.error = ProviderError("indisponível")
+
+    failed = _chat(client, token)
+    health = client.get("/health")
+    usage = client.get("/api/v1/usage", headers=_auth(token))
+
+    assert failed.status_code == 502
+    assert health.status_code == 200
+    assert usage.status_code == 200
+    assert usage.json()["daily_remaining"] >= 0
+
+
 def test_chat_is_documented(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
     assert "post" in paths["/api/v1/chat"]

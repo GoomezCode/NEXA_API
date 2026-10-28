@@ -19,8 +19,8 @@ run: ## Sobe a API em modo desenvolvimento
 test: ## Executa os testes
 	$(PY) -m pytest
 
-cov: ## Testes com relatório de cobertura
-	$(PY) -m pytest --cov=app --cov-report=term-missing --cov-report=xml
+cov: ## Testes com relatório de cobertura (mínimo 80%)
+	$(PY) -m pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=80
 
 lint: ## Ruff (lint + formatação)
 	.venv/bin/ruff check .
