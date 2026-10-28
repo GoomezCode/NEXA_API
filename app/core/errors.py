@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Message, Scope
 
@@ -102,6 +103,15 @@ class ProblemDetails(BaseModel):
     detail: str
     request_id: str = ""
     errors: list[ValidationErrorItem] | None = Field(default=None)
+    resets_at: datetime | None = Field(
+        default=None, description="Reinício da cota diária (ISO 8601 UTC)."
+    )
+
+    @field_serializer("resets_at")
+    def _serialize_resets_at(self, value: datetime | None) -> str | None:
+        if value is None:
+            return None
+        return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class ApiError(Exception):
@@ -115,6 +125,7 @@ class ApiError(Exception):
         status_code: int | None = None,
         headers: Mapping[str, str] | None = None,
         errors: Sequence[ValidationErrorItem] | None = None,
+        resets_at: datetime | None = None,
     ) -> None:
         spec = spec_for(code)
         self.code = code
@@ -123,6 +134,7 @@ class ApiError(Exception):
         self.detail = detail or spec.detail
         self.headers: dict[str, str] = dict(headers or {})
         self.errors: list[ValidationErrorItem] | None = list(errors) if errors else None
+        self.resets_at = resets_at
         super().__init__(self.detail)
 
 
@@ -143,6 +155,7 @@ def problem_payload(
     request_id: str = "",
     status_code: int | None = None,
     errors: Sequence[ValidationErrorItem] | None = None,
+    resets_at: datetime | None = None,
 ) -> dict[str, Any]:
     """Monta o dicionário do corpo de erro."""
     spec = spec_for(code)
@@ -153,6 +166,7 @@ def problem_payload(
         detail=detail or spec.detail,
         request_id=request_id,
         errors=list(errors) if errors else None,
+        resets_at=resets_at,
     )
     return payload.model_dump(exclude_none=True)
 
@@ -223,6 +237,7 @@ async def api_error_handler(request: Request, exc: Exception) -> JSONResponse:
         request_id=request_id_of(request),
         status_code=exc.status_code,
         errors=exc.errors,
+        resets_at=exc.resets_at,
     )
     return _problem_response(payload, status_code=exc.status_code, headers=headers)
 

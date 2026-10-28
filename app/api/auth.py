@@ -13,7 +13,7 @@ from app.core.errors import ApiError
 from app.core.ip import get_client_ip
 from app.core.logging import get_logger
 from app.core.rate_limit import SlidingWindowLimiter
-from app.core.usage import initial_usage
+from app.core.usage_store import UsageStore
 from app.schemas.auth import GuestTokenResponse, LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Autenticação"])
@@ -30,6 +30,10 @@ def _auth_service(request: Request) -> AuthService:
 
 def _limiter(request: Request, name: str) -> SlidingWindowLimiter:
     return cast(SlidingWindowLimiter, getattr(request.app.state, name))
+
+
+def _usage_store(request: Request) -> UsageStore:
+    return cast(UsageStore, request.app.state.usage_store)
 
 
 @router.post(
@@ -93,7 +97,7 @@ async def guest_token(request: Request) -> GuestTokenResponse:
 
     gid = str(uuid.uuid4())
     token, expires_in = _auth_service(request).issue_guest_token(gid)
-    usage = initial_usage(settings, now=request.app.state.clock.now())
+    usage = await _usage_store(request).snapshot(role="guest", subject=gid, ip=ip)
     logger.info("guest_token_issued")
     return GuestTokenResponse(
         access_token=token,

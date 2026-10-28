@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.ai import AIProvider, build_provider
-from app.api import auth, system
+from app.api import auth, system, usage
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
@@ -15,6 +18,7 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import BodyLimitMiddleware, RequestContextMiddleware
 from app.core.rate_limit import SlidingWindowLimiter
+from app.core.usage_store import InMemoryUsageStore
 
 EXPOSED_HEADERS = [
     "X-RateLimit-Limit",
@@ -52,7 +56,16 @@ def create_app(
     resolved = settings or get_settings()
     resolved_clock = clock or SystemClock()
     resolved_provider = provider or build_provider(resolved)
+    usage_store = InMemoryUsageStore(resolved, resolved_clock)
     configure_logging(resolved.log_level)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        await usage_store.start()
+        try:
+            yield
+        finally:
+            await usage_store.aclose()
 
     app = FastAPI(
         title="Nexa API",
@@ -61,6 +74,7 @@ def create_app(
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # Estado compartilhado. O chat (F4/F5) consome apenas o contrato `AIProvider`.
@@ -70,6 +84,7 @@ def create_app(
     app.state.ai_provider_name = resolved_provider.name
     app.state.ai_model = resolved_provider.model
     app.state.ai_health = resolved_provider.health
+    app.state.usage_store = usage_store
     app.state.auth_service = AuthService(resolved, resolved_clock)
     app.state.login_limiter = SlidingWindowLimiter(
         resolved_clock,
@@ -100,6 +115,7 @@ def create_app(
     register_exception_handlers(app)
     app.include_router(system.router)
     app.include_router(auth.router)
+    app.include_router(usage.router)
     return app
 
 

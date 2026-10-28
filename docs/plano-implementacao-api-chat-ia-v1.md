@@ -500,22 +500,26 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] `core/usage_store.py`: `UsageStore` (Protocol) + `InMemoryUsageStore` com:
+- [x] `core/usage_store.py`: `UsageStore` (Protocol) + `InMemoryUsageStore` com:
   - janela diária fixa (00:00 UTC) por `gid` e por IP;
-  - janela deslizante de 60 s por `gid` (máx. `GUEST_RATE_PER_MIN` marcas);
-  - `consume` atômico por chave (`asyncio.Lock`), verificando as duas cotas;
+  - janela deslizante de 60 s por `gid` (máx. `GUEST_RATE_PER_MIN` marcas) e por admin;
+  - `consume` atômico (`asyncio.Lock`), verificando as duas cotas antes de consumir;
   - `refund`, `snapshot`, `reset`, `list_guests`;
-  - limpeza periódica (task de background) de chaves expiradas.
-- [ ] `UsageInfo` único (RD-08); cota efetiva = `min(gid, ip)`; códigos `guest_daily_limit_reached` × `ip_daily_limit_reached` (RF-USO-12).
-- [ ] Helpers de `X-RateLimit-*` (epoch seconds), reutilizáveis em JSON, SSE e 429; omitidos para admin.
-- [ ] `GET /usage` (guest e admin).
-- [ ] Recusa de boot com `UVICORN_WORKERS > 1` sem Redis (RNF-CON-06).
-- [ ] Admin sem cota diária, com limite por minuto.
-- [ ] `UsageStore` preparado para implementação Redis futura (sem implementá-la).
+  - limpeza periódica de chaves expiradas via task de background (ligada ao `lifespan`).
+- [x] `UsageInfo` único (RD-08); cota efetiva = `min(gid, ip)`; códigos `guest_daily_limit_reached` × `ip_daily_limit_reached` com prioridade do `gid` (RN-15).
+- [x] Helpers de `X-RateLimit-*` (epoch seconds) reutilizáveis em JSON, SSE e 429; omitidos para admin.
+- [x] `GET /usage` (guest e admin); a emissão de token guest passou a refletir o consumo real do IP.
+- [x] Recusa de boot com `UVICORN_WORKERS > 1` sem Redis (RNF-CON-06) — validação de `Settings` desde a F0.
+- [x] Admin sem cota diária, com limite por minuto.
+- [x] `UsageStore` preparado para implementação Redis futura (sem implementá-la).
 
-**Testes:** virada de dia e janela deslizante (clock fake), concorrência (`asyncio.gather`), refund duplo, precedência `gid` × IP, headers e `/usage`.
+**Testes:** virada de dia e janela deslizante (clock fake), concorrência (`asyncio.gather`), refund duplo, precedência `gid` × IP, listagem/reset, headers e `/usage`.
 
 **Gate:** CA-07, CA-08, CA-09, CA-11, CA-12 (parcial), CA-23.
+
+> **Concluída em 28/10/2026:** 260 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; smoke test de `/usage` (guest 200, admin 200 com campos diários nulos,
+> sem token 401) e da emissão de guest com `usage` vindo do store.
 
 ---
 

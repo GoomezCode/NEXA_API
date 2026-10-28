@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -13,6 +14,7 @@ from starlette.requests import Request
 from app.core.errors import (
     ERROR_CATALOG,
     ApiError,
+    ProblemDetails,
     ValidationErrorItem,
     api_error_handler,
     http_exception_handler,
@@ -209,3 +211,30 @@ def test_send_payload_too_large_includes_request_id() -> None:
 def test_send_payload_too_large_without_state() -> None:
     _, end = send_payload_too_large({"type": "http"})
     assert json.loads(end["body"])["request_id"] == ""
+
+
+def test_problem_details_serializes_absent_reset_as_none() -> None:
+    payload = ProblemDetails(
+        title="Não autorizado",
+        status=401,
+        code="invalid_token",
+        detail="Token ausente ou inválido.",
+    ).model_dump()
+
+    assert payload["resets_at"] is None
+
+
+def test_problem_payload_with_resets_at() -> None:
+    reset = datetime(2026, 10, 29, 0, 0, tzinfo=UTC)
+    payload = problem_payload("guest_daily_limit_reached", request_id=REQUEST_ID, resets_at=reset)
+    assert payload["resets_at"] == "2026-10-29T00:00:00Z"
+
+
+async def test_api_error_handler_includes_resets_at() -> None:
+    reset = datetime(2026, 10, 29, 0, 0, tzinfo=UTC)
+    error = ApiError("ip_daily_limit_reached", resets_at=reset)
+
+    response = await api_error_handler(make_request(), error)
+
+    assert response.status_code == 429
+    assert body_of(response)["resets_at"] == "2026-10-29T00:00:00Z"

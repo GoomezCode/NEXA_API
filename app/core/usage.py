@@ -1,14 +1,10 @@
-"""Cálculos de cota reutilizados pela autenticação e, adiante, pelo chat.
-
-A Fase 3 substitui `initial_usage` por um snapshot do `UsageStore`; os helpers
-de calendário permanecem.
-"""
+"""Cálculos e cabeçalhos de cota compartilhados pelas rotas (RD-08, RF-USO-08)."""
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime, time, timedelta
 
-from app.config import Settings
 from app.schemas.usage import UsageInfo
 
 
@@ -18,19 +14,20 @@ def daily_reset_at(now: datetime) -> datetime:
     return datetime.combine(current.date() + timedelta(days=1), time.min, tzinfo=UTC)
 
 
-def initial_usage(settings: Settings, *, now: datetime) -> UsageInfo:
-    """`usage` de um `gid` recém-criado (sem consumo).
-
-    A cota efetiva é o menor valor entre a do `gid` e a do IP (RF-USO-12).
-    """
-    remaining = min(settings.guest_daily_messages, settings.guest_ip_daily_messages)
-    return UsageInfo(
-        daily_limit=settings.guest_daily_messages,
-        daily_remaining=remaining,
-        per_minute_limit=settings.guest_rate_per_min,
-        per_minute_remaining=settings.guest_rate_per_min,
-        resets_at=daily_reset_at(now),
-    )
+def seconds_until(when: datetime, *, now: datetime) -> int:
+    """Segundos (mínimo 1) até `when`, para `Retry-After`."""
+    return max(1, math.ceil((when - now).total_seconds()))
 
 
-__all__ = ["daily_reset_at", "initial_usage"]
+def rate_limit_headers(usage: UsageInfo) -> dict[str, str]:
+    """Cabeçalhos `X-RateLimit-*` da cota diária (omitidos para o admin)."""
+    if usage.daily_limit is None or usage.daily_remaining is None or usage.resets_at is None:
+        return {}
+    return {
+        "X-RateLimit-Limit": str(usage.daily_limit),
+        "X-RateLimit-Remaining": str(usage.daily_remaining),
+        "X-RateLimit-Reset": str(int(usage.resets_at.timestamp())),
+    }
+
+
+__all__ = ["daily_reset_at", "rate_limit_headers", "seconds_until"]
