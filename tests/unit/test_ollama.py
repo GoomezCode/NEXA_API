@@ -111,17 +111,19 @@ async def test_generate_maps_read_timeout() -> None:
 
 
 @respx.mock
-async def test_generate_respects_total_deadline() -> None:
+async def test_generate_total_deadline_finishes_with_timeout_reason() -> None:
     async def slow(request: httpx.Request) -> httpx.Response:
         await asyncio.sleep(0.2)
         return httpx.Response(200, json={"message": {"content": "tarde"}})
 
     respx.post(CHAT_URL).mock(side_effect=slow)
 
-    with pytest.raises(ProviderTimeout):
-        await make_provider(ai_timeout_seconds=0.05).generate(
-            MESSAGES, max_tokens=10, max_seconds=0.05
-        )
+    result = await make_provider(ai_timeout_seconds=0.05).generate(
+        MESSAGES, max_tokens=10, max_seconds=0.05
+    )
+
+    assert result.content == ""
+    assert result.finish_reason == "timeout"
 
 
 @respx.mock
@@ -258,22 +260,19 @@ async def test_stream_maps_read_timeout() -> None:
 
 
 @respx.mock
-async def test_stream_respects_total_deadline() -> None:
+async def test_stream_total_deadline_ends_with_timeout_reason() -> None:
     async def slow(request: httpx.Request) -> httpx.Response:
         await asyncio.sleep(0.2)
         return httpx.Response(200, content=b'{"done":true}\n')
 
     respx.post(CHAT_URL).mock(side_effect=slow)
-
-    with pytest.raises(ProviderTimeout):
-        await _collect_timeout_provider()
-
-
-async def _collect_timeout_provider() -> list[str]:
     provider = make_provider(ai_timeout_seconds=0.05)
-    return [
-        chunk.content async for chunk in provider.stream(MESSAGES, max_tokens=10, max_seconds=0.05)
-    ]
+
+    chunks = [chunk async for chunk in provider.stream(MESSAGES, max_tokens=10, max_seconds=0.05)]
+
+    assert len(chunks) == 1
+    assert chunks[0].finish_reason == "timeout"
+    assert chunks[0].content == ""
 
 
 @respx.mock

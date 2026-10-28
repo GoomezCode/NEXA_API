@@ -6,11 +6,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.ai import AIProvider, build_provider
-from app.api import auth, system, usage
+from app.api import auth, chat, system, usage
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
@@ -113,9 +114,12 @@ def create_app(
     app.add_middleware(RequestContextMiddleware, settings=resolved)
 
     register_exception_handlers(app)
+    # Em `POST /chat`, o 422 também carrega os cabeçalhos de cota (RF-USO-08).
+    app.add_exception_handler(RequestValidationError, chat.validation_error_with_quota)
     app.include_router(system.router)
     app.include_router(auth.router)
     app.include_router(usage.router)
+    app.include_router(chat.router)
     return app
 
 

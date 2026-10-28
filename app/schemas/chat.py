@@ -1,0 +1,71 @@
+"""Schemas do chat (SRS §3.7.3)."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.ai.base import FinishReason, MessageRole
+from app.schemas.usage import UsageInfo
+
+
+class ChatMessageInput(BaseModel):
+    """Mensagem enviada pelo cliente."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: MessageRole
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def _content_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("não pode ser vazio")
+        return value
+
+
+class ChatRequest(BaseModel):
+    """Corpo de `POST /chat` (sem `system_prompt` nem parâmetros de geração)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    messages: list[ChatMessageInput] = Field(min_length=1)
+    stream: bool = True
+
+    @field_validator("messages")
+    @classmethod
+    def _last_message_must_be_user(cls, messages: list[ChatMessageInput]) -> list[ChatMessageInput]:
+        if messages and messages[-1].role != "user":
+            raise ValueError("a última mensagem deve ter role = user")
+        return messages
+
+
+class AssistantMessage(BaseModel):
+    """Mensagem de resposta do assistente."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["assistant"] = "assistant"
+    content: str
+
+
+class ChatResponse(BaseModel):
+    """Resposta completa do chat (`stream = false`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: AssistantMessage
+    provider: str
+    model: str
+    finish_reason: FinishReason
+    usage: UsageInfo
+
+
+__all__ = [
+    "AssistantMessage",
+    "ChatMessageInput",
+    "ChatRequest",
+    "ChatResponse",
+]

@@ -70,7 +70,11 @@ class OllamaProvider:
                     )
                     response.raise_for_status()
                     data = response.json()
-        except (TimeoutError, httpx.TimeoutException) as exc:
+        except TimeoutError:
+            # `max_seconds` é o teto de geração definido pela API: terminar
+            # normalmente com finish_reason=timeout (RF-CHAT-12/CA-21).
+            return GenerationResult(content="", finish_reason="timeout")
+        except httpx.TimeoutException as exc:
             raise ProviderTimeout("Ollama não respondeu a tempo.") from exc
         except httpx.HTTPStatusError as exc:
             raise ProviderError(f"Ollama retornou HTTP {exc.response.status_code}.") from exc
@@ -117,7 +121,10 @@ class OllamaProvider:
                         yield chunk
                 if not done_seen:
                     raise ProviderError("O stream do Ollama terminou sem o evento de conclusão.")
-        except (TimeoutError, httpx.TimeoutException) as exc:
+        except TimeoutError:
+            # Teto de geração: encerra o stream normalmente (CA-21).
+            yield GenerationChunk(finish_reason="timeout")
+        except httpx.TimeoutException as exc:
             raise ProviderTimeout("Ollama não respondeu a tempo.") from exc
         except httpx.HTTPError as exc:
             raise ProviderUnavailable("Não foi possível conectar ao Ollama.") from exc

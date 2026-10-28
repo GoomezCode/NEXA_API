@@ -527,17 +527,22 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] `schemas/chat.py` (`extra="forbid"`, validação de `messages` e da última `user`).
-- [ ] `POST /chat` com `stream=false`: auth → validação → limites de contexto → `usage.consume` → provider → `ChatResponse`.
-- [ ] `DEFAULT_SYSTEM_PROMPT` prefixado; `ALLOW_CLIENT_SYSTEM_MESSAGES` (nunca para guest).
-- [ ] Limites de contexto por papel (422 com `errors[]`).
-- [ ] Falhas: `502 ai_provider_error`, `504 ai_provider_timeout`; refund se falhar antes do 1º token.
-- [ ] `finish_reason` e `AI_MAX_OUTPUT_TOKENS`/`AI_MAX_OUTPUT_SECONDS`.
-- [ ] Headers `X-RateLimit-*` na resposta JSON; métricas de duração/tokens (metadados).
+- [x] `schemas/chat.py` (`extra="forbid"`, validação de `messages` e da última `user`).
+- [x] `POST /chat` com `stream=false`: auth → validação → limites de contexto → `usage.consume` → provider → `ChatResponse`.
+- [x] `DEFAULT_SYSTEM_PROMPT` prefixado; `ALLOW_CLIENT_SYSTEM_MESSAGES` (nunca para guest).
+- [x] Limites de contexto por papel (422 com `errors[]`).
+- [x] Falhas: `502 ai_provider_error`, `504 ai_provider_timeout`; refund se falhar antes do 1º token.
+- [x] `finish_reason` e `AI_MAX_OUTPUT_TOKENS`/`AI_MAX_OUTPUT_SECONDS` (teto de geração encerra com `finish_reason="timeout"`; timeout de transporte segue `504`).
+- [x] Headers `X-RateLimit-*` na resposta JSON (inclusive nos erros de guest); métricas de duração/tokens em log estruturado (sem conteúdo).
 
 **Testes:** sucesso, 422 (campos/limites), 422 `system` de guest, 429 com códigos, 502/504 + refund, limite de saída, headers.
 
 **Gate:** CA-05, CA-12 (parcial), CA-13 (JSON), CA-21.
+
+> **Concluída em 28/10/2026:** 322 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; smoke test do chat (400 `stream=true` provisório, 401 sem token, 422 de
+> schema/limites, 502 do provedor, 429 de cota) com `X-RateLimit-*` em todas as
+> respostas de guest e refund de cota nas falhas.
 
 ---
 
