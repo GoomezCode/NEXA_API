@@ -27,6 +27,7 @@ from app.core.errors import (
 from app.core.ip import get_client_ip
 from app.core.logging import get_logger
 from app.core.sse import SSE_HEADERS
+from app.core.stats import UsageStats
 from app.core.usage import rate_limit_headers
 from app.core.usage_store import UsageDecision, UsageStore
 from app.schemas.chat import AssistantMessage, ChatRequest, ChatResponse
@@ -142,6 +143,10 @@ async def chat(
     settings = cast(Settings, request.app.state.settings)
     ip = get_client_ip(request, settings.trusted_proxies)
     store = cast(UsageStore, request.app.state.usage_store)
+    stats = cast(UsageStats, request.app.state.stats)
+
+    # RF-ADM-02: toda requisição de chat autenticada entra nas estatísticas.
+    stats.record_chat(subject=user.subject, role=user.role)
 
     errors = context_errors(payload.messages, role=user.role, settings=settings)
     if errors:
@@ -150,6 +155,8 @@ async def chat(
         raise ApiError("validation_error", errors=errors, headers=headers)
 
     decision = await store.consume(role=user.role, subject=user.subject, ip=ip)
+    if not decision.allowed:
+        stats.record_rate_limited()
     usage = _consume_or_raise(decision)
 
     provider = cast(AIProvider, request.app.state.ai_provider)
@@ -169,6 +176,7 @@ async def chat(
             max_seconds=settings.ai_max_output_seconds,
             request_id=request_id_of(request),
             idle_timeout_seconds=settings.ai_stream_idle_timeout_seconds,
+            stats=stats,
         )
         return StreamingResponse(
             stream_events(session),
@@ -188,6 +196,8 @@ async def chat(
         # RF-USO-05/CA-13: nada foi entregue ao cliente, devolve a cota.
         await store.refund(role=user.role, subject=user.subject, ip=ip)
         if isinstance(exc, ProviderError):
+            stats.record_provider_error()
+            stats.record_duration(time.perf_counter() - started)
             api_error = _provider_error(exc)
             # Após o refund, a cota reportada é a efetivamente disponível.
             api_error.headers = await _quota_headers(store, user=user, ip=ip)
@@ -202,6 +212,7 @@ async def chat(
         raise
 
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    stats.record_duration(duration_ms / 1000)
     logger.info(
         "chat_completed",
         role=user.role,

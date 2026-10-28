@@ -351,3 +351,27 @@ async def test_start_is_idempotent() -> None:
 def test_rejects_invalid_purge_interval() -> None:
     with pytest.raises(ValueError):
         InMemoryUsageStore(make_settings(), FakeClock(), purge_interval_seconds=0)
+
+
+async def test_list_ip_usage_aggregates_and_sorts() -> None:
+    store, _ = make_store(guest_ip_daily_messages=30)
+
+    await store.consume(role="guest", subject="a", ip="203.0.113.1")
+    await store.consume(role="guest", subject="b", ip="203.0.113.2")
+    await store.consume(role="guest", subject="c", ip="203.0.113.2")
+
+    usage = await store.list_ip_usage()
+
+    assert [(entry.ip, entry.daily_used, entry.daily_limit) for entry in usage] == [
+        ("203.0.113.2", 2, 30),
+        ("203.0.113.1", 1, 30),
+    ]
+
+
+async def test_list_ip_usage_ignores_previous_days() -> None:
+    store, clock = make_store()
+
+    await store.consume(role="guest", subject=GUEST, ip=IP)
+    clock.advance(24 * 60 * 60)
+
+    assert await store.list_ip_usage() == []

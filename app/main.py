@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.ai import AIProvider, build_provider
-from app.api import auth, chat, system, usage
+from app.api import admin, auth, chat, system, usage
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
@@ -19,6 +19,7 @@ from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import BodyLimitMiddleware, RequestContextMiddleware
 from app.core.rate_limit import SlidingWindowLimiter
+from app.core.stats import UsageStats
 from app.core.usage_store import InMemoryUsageStore
 
 EXPOSED_HEADERS = [
@@ -39,6 +40,7 @@ API do chat de IA via web, conforme o SRS v1.1.
 - Autenticação por JWT (`admin` e `guest`).
 - Chat com resposta JSON ou streaming SSE.
 - Cotas em memória por convidado e por IP.
+- Administração: estatísticas, status do provedor, guests e reset de cota.
 - Erros no padrão Problem Details (`application/problem+json`).
 """
 
@@ -86,6 +88,10 @@ def create_app(
     app.state.ai_model = resolved_provider.model
     app.state.ai_health = resolved_provider.health
     app.state.usage_store = usage_store
+    app.state.stats = UsageStats(
+        resolved_clock,
+        retention_seconds=resolved.guest_token_expire_hours * 3600,
+    )
     app.state.auth_service = AuthService(resolved, resolved_clock)
     app.state.login_limiter = SlidingWindowLimiter(
         resolved_clock,
@@ -120,6 +126,7 @@ def create_app(
     app.include_router(auth.router)
     app.include_router(usage.router)
     app.include_router(chat.router)
+    app.include_router(admin.router)
     return app
 
 

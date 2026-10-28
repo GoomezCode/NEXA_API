@@ -25,6 +25,7 @@ from app.core.errors import spec_for
 from app.core.logging import get_logger
 from app.core.security import Role
 from app.core.sse import HEARTBEAT, HEARTBEAT_INTERVAL_SECONDS, format_data, format_event
+from app.core.stats import UsageStats
 from app.core.usage_store import UsageStore
 from app.schemas.chat import StreamChunk, StreamDone, StreamError
 from app.schemas.usage import UsageInfo
@@ -54,6 +55,7 @@ class StreamSession:
     request_id: str
     heartbeat_seconds: float = HEARTBEAT_INTERVAL_SECONDS
     idle_timeout_seconds: float = DEFAULT_IDLE_TIMEOUT_SECONDS
+    stats: UsageStats | None = None
 
 
 def error_code(exc: BaseException) -> str:
@@ -95,7 +97,7 @@ async def stream_events(session: StreamSession) -> AsyncIterator[str]:
                         await _refund(session)
                     settled = True
                     yield _error_event(session, "ai_provider_timeout")
-                    _log_failure(session, "ai_provider_timeout", started)
+                    _record_failure(session, "ai_provider_timeout", started)
                     return
                 yield HEARTBEAT
                 continue
@@ -109,7 +111,7 @@ async def stream_events(session: StreamSession) -> AsyncIterator[str]:
                     await _refund(session)
                 settled = True
                 yield _error_event(session, error_code(item))
-                _log_failure(session, error_code(item), started)
+                _record_failure(session, error_code(item), started)
                 return
 
             chunk: GenerationChunk = item
@@ -133,13 +135,15 @@ async def stream_events(session: StreamSession) -> AsyncIterator[str]:
                 await _refund(session)
             settled = True
             yield _error_event(session, "ai_provider_error")
-            _log_failure(session, "ai_provider_error", started)
+            _record_failure(session, "ai_provider_error", started)
             return
 
         yield format_event(
             "done",
             StreamDone(finish_reason=finish_reason, usage=session.usage).model_dump(mode="json"),
         )
+        if session.stats is not None:
+            session.stats.record_duration(time.perf_counter() - started)
         logger.info(
             "chat_stream_completed",
             role=session.role,
@@ -201,6 +205,14 @@ def _error_event(session: StreamSession, code: str) -> str:
         request_id=session.request_id,
     )
     return format_event("error", payload.model_dump(mode="json"))
+
+
+def _record_failure(session: StreamSession, code: str, started: float) -> None:
+    """Estatísticas RF-ADM-02 + log de falha do provedor no streaming."""
+    if session.stats is not None:
+        session.stats.record_provider_error()
+        session.stats.record_duration(time.perf_counter() - started)
+    _log_failure(session, code, started)
 
 
 def _log_failure(session: StreamSession, code: str, started: float) -> None:

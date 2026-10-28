@@ -47,6 +47,15 @@ class GuestUsage:
     last_seen_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class IpUsage:
+    """Uso diário agregado por IP em `GET /admin/guests` (RF-ADM-05)."""
+
+    ip: str
+    daily_used: int
+    daily_limit: int
+
+
 class UsageStore(Protocol):
     """Interface de cotas; permite trocar a implementação sem tocar nas rotas."""
 
@@ -59,6 +68,8 @@ class UsageStore(Protocol):
     async def reset(self, *, scope: ResetScope, value: str) -> bool: ...
 
     async def list_guests(self) -> list[GuestUsage]: ...
+
+    async def list_ip_usage(self) -> list[IpUsage]: ...
 
     async def purge_expired(self) -> int: ...
 
@@ -128,6 +139,21 @@ class InMemoryUsageStore:
                 for gid, record in self._guests.items()
             ]
         return sorted(entries, key=lambda item: item.last_seen_at, reverse=True)
+
+    async def list_ip_usage(self) -> list[IpUsage]:
+        """Uso diário por IP, do mais usado para o menos usado."""
+        async with self._lock:
+            today = self._now().date()
+            entries = [
+                IpUsage(
+                    ip=ip,
+                    daily_used=counter.used,
+                    daily_limit=self._ip_daily_limit,
+                )
+                for ip, counter in self._ip_daily.items()
+                if counter.day == today
+            ]
+        return sorted(entries, key=lambda item: (-item.daily_used, item.ip))
 
     # --- Consumo/devolução --------------------------------------------------
     async def consume(self, *, role: str, subject: str, ip: str) -> UsageDecision:
@@ -373,6 +399,7 @@ __all__ = [
     "MINUTE_WINDOW_SECONDS",
     "GuestUsage",
     "InMemoryUsageStore",
+    "IpUsage",
     "ResetScope",
     "UsageDecision",
     "UsageStore",

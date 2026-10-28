@@ -575,15 +575,19 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] `core/stats.py`: totais, guests distintos (HyperLogLog ou conjunto com expiração), barrados, erros, média de duração.
-- [ ] `GET /admin/stats`, `GET /admin/ai/status`, `GET /admin/guests`, `POST /admin/usage/reset`.
-- [ ] `require_admin` em todas; guest → `403 forbidden`.
-- [ ] Reset `204` / `404`; lista com `gid` obtível para o reset.
-- [ ] Documentação de exemplos no OpenAPI.
+- [x] `core/stats.py`: totais, guests distintos (conjunto com expiração e teto), barrados, erros, média de duração.
+- [x] `GET /admin/stats`, `GET /admin/ai/status`, `GET /admin/guests`, `POST /admin/usage/reset`.
+- [x] `require_admin` em todas; guest → `403 forbidden`.
+- [x] Reset `204` / `404`; lista com `gid` obtível para o reset (`list_guests` + `list_ip_usage` no `UsageStore`).
+- [x] Documentação de exemplos no OpenAPI (`schemas/admin.py`, respostas `204`/`404`).
 
 **Testes:** 403, schemas, reset por gid/ip, `404`, contadores coerentes após chat/429/erro.
 
 **Gate:** CA-12, CA-17 (parcial), CA-20.
+
+> **Concluída em 28/10/2026:** 384 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; contadores alimentados pelo chat JSON e pelo streaming (inclusive falhas
+> e timeouts), guests distintos com expiração de 24 h e teto de memória.
 
 ---
 

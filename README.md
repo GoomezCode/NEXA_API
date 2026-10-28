@@ -42,6 +42,10 @@ Endpoints disponíveis na fase atual:
 | POST | `/api/v1/auth/guest` | Emite token de convidado (`gid` + `usage` inicial) |
 | GET | `/api/v1/usage` | Limites e uso restante do chamador |
 | POST | `/api/v1/chat` | Envia o contexto e recebe a resposta do modelo (JSON ou SSE) |
+| GET | `/api/v1/admin/stats` | Estatísticas de uso em memória (somente admin) |
+| GET | `/api/v1/admin/ai/status` | Status do provedor de IA (somente admin) |
+| GET | `/api/v1/admin/guests` | Guests ativos e uso por IP (somente admin) |
+| POST | `/api/v1/admin/usage/reset` | Zera a cota de um `gid` ou IP (somente admin) |
 | GET | `/health` | Saúde da API (`status`, `version`, `request_id`) |
 | GET | `/health/ready` | Prontidão (inclui provedor de IA) |
 | GET | `/docs` | OpenAPI (Swagger UI) |
@@ -78,6 +82,6 @@ tests/
 ## Fases
 
 A implementação segue o plano: **F0 Fundação**, **F1 Autenticação**,
-**F2 Provedores de IA**, **F3 Cotas e limites**, **F4 Chat JSON** e
-**F5 Streaming SSE** (concluídas); F6 Administração, F7 Hardening,
+**F2 Provedores de IA**, **F3 Cotas e limites**, **F4 Chat JSON**,
+**F5 Streaming SSE** e **F6 Administração** (concluídas); F7 Hardening,
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade.
