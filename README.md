@@ -52,7 +52,9 @@ Endpoints disponíveis na fase atual:
 | GET | `/redoc` | OpenAPI (ReDoc) |
 
 Todas as respostas trazem `X-Request-ID`; erros seguem o padrão
-`application/problem+json` (SRS §3.8).
+`application/problem+json` (SRS §3.8). Corpos de requisição devem ser
+`application/json` (charset opcional); outros tipos recebem
+`415 unsupported_media_type`.
 
 ## Qualidade
 
@@ -83,5 +85,5 @@ tests/
 
 A implementação segue o plano: **F0 Fundação**, **F1 Autenticação**,
 **F2 Provedores de IA**, **F3 Cotas e limites**, **F4 Chat JSON**,
-**F5 Streaming SSE** e **F6 Administração** (concluídas); F7 Hardening,
+**F5 Streaming SSE**, **F6 Administração** e **F7 Hardening** (concluídas);
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade.

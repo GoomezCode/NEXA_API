@@ -292,30 +292,48 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
-def send_payload_too_large(scope: Scope) -> tuple[Message, Message]:
-    """Mensagens ASGI de `413`, usadas pelo middleware de tamanho de corpo."""
+def _problem_asgi_messages(
+    code: str,
+    scope: Scope,
+    *,
+    headers: Sequence[tuple[bytes, bytes]] = (),
+) -> tuple[Message, Message]:
+    """Resposta de erro mínima para uso dentro de middlewares ASGI."""
     state = scope.get("state")
     request_id = ""
     if isinstance(state, dict):
         value = state.get("request_id")
         if isinstance(value, str):
             request_id = value
+    status = spec_for(code).status
     body = json.dumps(
-        problem_payload("payload_too_large", request_id=request_id),
+        problem_payload(code, request_id=request_id),
         separators=(",", ":"),
     ).encode("utf-8")
     start: Message = {
         "type": "http.response.start",
-        "status": 413,
+        "status": status,
         "headers": [
             (b"content-type", PROBLEM_MEDIA_TYPE.encode("latin-1")),
             (b"content-length", str(len(body)).encode("latin-1")),
             (b"cache-control", b"no-store"),
-            (b"connection", b"close"),
+            *headers,
         ],
     }
     end: Message = {"type": "http.response.body", "body": body}
     return start, end
+
+
+def send_payload_too_large(scope: Scope) -> tuple[Message, Message]:
+    """Mensagens ASGI de `413`, usadas pelo middleware de tamanho de corpo."""
+    return _problem_asgi_messages("payload_too_large", scope, headers=((b"connection", b"close"),))
+
+
+def send_unsupported_media_type(scope: Scope) -> tuple[Message, Message]:
+    """Mensagens ASGI de `415`, usadas pelo middleware de tipo de conteúdo."""
+    return _problem_asgi_messages(
+        "unsupported_media_type", scope, headers=((b"connection", b"close"),)
+    )
 
 
 __all__ = [
@@ -329,5 +347,6 @@ __all__ = [
     "register_exception_handlers",
     "request_id_of",
     "send_payload_too_large",
+    "send_unsupported_media_type",
     "spec_for",
 ]

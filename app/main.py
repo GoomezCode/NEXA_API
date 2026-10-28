@@ -17,7 +17,11 @@ from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
-from app.core.middleware import BodyLimitMiddleware, RequestContextMiddleware
+from app.core.middleware import (
+    BodyLimitMiddleware,
+    ContentTypeMiddleware,
+    RequestContextMiddleware,
+)
 from app.core.rate_limit import SlidingWindowLimiter
 from app.core.stats import UsageStats
 from app.core.usage_store import InMemoryUsageStore
@@ -104,9 +108,11 @@ def create_app(
         window_seconds=3600,
     )
 
-    # Pilha (de dentro para fora): BodyLimit → CORS → RequestContext.
+    # Pilha (de dentro para fora): ContentType → BodyLimit → CORS → RequestContext.
     # RequestContext é o mais externo para que *toda* resposta (inclusive
     # preflight) receba X-Request-ID e seja registrada em log (RF-SIS-03).
+    # BodyLimit vem antes do ContentType para recusar 413 sem bufferizar.
+    app.add_middleware(ContentTypeMiddleware)
     app.add_middleware(BodyLimitMiddleware, max_bytes=resolved.max_request_body_bytes)
     app.add_middleware(
         CORSMiddleware,

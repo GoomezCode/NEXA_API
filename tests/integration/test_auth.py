@@ -29,10 +29,16 @@ def client_for(
         yield test_client
 
 
-def login(client: TestClient, password: str = "admin") -> object:
+def login(
+    client: TestClient,
+    password: str = "admin",
+    *,
+    headers: dict[str, str] | None = None,
+) -> object:
     return client.post(
         "/api/v1/auth/login",
         json={"username": "admin", "password": password},
+        headers=headers,
     )
 
 
@@ -96,6 +102,59 @@ def test_login_locks_after_max_attempts(client: TestClient, clock: FakeClock) ->
 
     clock.advance(900)
     assert login(client).status_code == 200
+
+
+def test_login_lock_uses_forwarded_ip_from_trusted_proxy(clock: FakeClock) -> None:
+    settings = make_settings(
+        login_max_attempts=2,
+        trusted_proxies="127.0.0.1/32",
+    )
+    first = {"X-Forwarded-For": "203.0.113.10"}
+    second = {"X-Forwarded-For": "203.0.113.11"}
+    with client_for(settings, clock) as client:
+        for _ in range(2):
+            assert login(client, "errada", headers=first).status_code == 401
+
+        locked = login(client, headers=first)
+        other_ip = login(client, headers=second)
+
+    assert locked.status_code == 429
+    assert locked.json()["code"] == "login_locked"
+    assert other_ip.status_code == 200
+
+
+def test_login_lock_ignores_forwarded_ip_without_trusted_proxy(clock: FakeClock) -> None:
+    settings = make_settings(login_max_attempts=2, trusted_proxies="")
+    with client_for(settings, clock) as client:
+        for index in range(2):
+            response = login(
+                client,
+                "errada",
+                headers={"X-Forwarded-For": f"203.0.113.{index}"},
+            )
+            assert response.status_code == 401
+
+        spoofed = login(
+            client,
+            headers={"X-Forwarded-For": "203.0.113.99"},
+        )
+
+    assert spoofed.status_code == 429
+    assert spoofed.json()["code"] == "login_locked"
+
+
+def test_authorization_token_is_never_logged(
+    client: TestClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    token = login(client).json()["access_token"]
+    capsys.readouterr()
+
+    response = client.get("/api/v1/usage", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+
+    captured = capsys.readouterr()
+    assert token not in captured.out
+    assert token not in captured.err
 
 
 def test_successful_login_resets_failures(client: TestClient) -> None:

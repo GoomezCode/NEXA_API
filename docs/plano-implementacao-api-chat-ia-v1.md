@@ -595,18 +595,22 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] CORS completo (`expose_headers`, preflight) — RNF-SEG-04.
-- [ ] `413 payload_too_large` no middleware, antes de bufferizar.
-- [ ] `400/404/405/415` padronizados.
-- [ ] Rejeição de `system` de guest e de campos desconhecidos em todos os corpos.
-- [ ] Validação de `JWT_SECRET` em produção (`ENVIRONMENT`); recusa de segredo fraco.
-- [ ] Máscaras de log e teste que injeta `Authorization` e verifica ausência de token/conteúdo.
-- [ ] `WWW-Authenticate` em 401; headers de segurança.
-- [ ] Rate limit de login por IP com chave normalizada (IP real via `TRUSTED_PROXIES`).
+- [x] CORS completo (`expose_headers`, preflight) — RNF-SEG-04; `X-RateLimit-*` expostos também no `429`.
+- [x] `413 payload_too_large` no middleware, antes de bufferizar (inclusive `Transfer-Encoding: chunked`).
+- [x] `400/404/405/415` padronizados; `415` aplicado a corpos não-JSON (`ContentTypeMiddleware`).
+- [x] Rejeição de `system` de guest e de campos desconhecidos em todos os corpos (`extra="forbid"`).
+- [x] Validação de `JWT_SECRET` em produção (`ENVIRONMENT`); recusa de segredo fraco/ausente.
+- [x] Máscaras de log e teste que injeta `Authorization` e verifica ausência de token/conteúdo.
+- [x] `WWW-Authenticate` em 401; headers de segurança (`nosniff`, `DENY`, `no-referrer` e HSTS em produção).
+- [x] Rate limit de login por IP com chave normalizada (IP real via `TRUSTED_PROXIES`).
 
 **Testes:** CORS no browser (headers expostos), 413, 422, 401/403, spoof de `X-Forwarded-For` sem proxy confiável.
 
 **Gate:** CA-06, CA-19, CA-22.
+
+> **Concluída em 28/10/2026:** 405 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; `415` para corpos não-JSON, HSTS em produção, lock de login pelo IP
+> resolvido (com XFF só de proxy confiável) e ausência de token/conteúdo nos logs.
 
 ---
 

@@ -8,7 +8,11 @@ import pytest
 from starlette.types import Message, Receive, Scope, Send
 
 from app.core.logging import current_request_id
-from app.core.middleware import BodyLimitMiddleware, RequestContextMiddleware
+from app.core.middleware import (
+    BodyLimitMiddleware,
+    ContentTypeMiddleware,
+    RequestContextMiddleware,
+)
 from tests.conftest import make_settings
 
 
@@ -137,6 +141,131 @@ async def test_body_limit_rejects_chunked_body_over_limit() -> None:
 
     assert not called
     assert recorder.start["status"] == 413
+
+
+async def test_content_type_allows_json_body() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    recorder = Recorder()
+    scope = http_scope(
+        headers=[
+            (b"content-length", b"2"),
+            (b"content-type", b"application/json; charset=utf-8"),
+        ]
+    )
+
+    await middleware(scope, lambda: None, recorder.send)
+
+    assert called
+    assert recorder.messages == []
+
+
+async def test_content_type_allows_json_suffix() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    scope = http_scope(
+        headers=[
+            (b"content-length", b"2"),
+            (b"content-type", b"application/merge-patch+json"),
+        ]
+    )
+
+    await middleware(scope, lambda: None, Recorder().send)
+
+    assert called
+
+
+async def test_content_type_rejects_non_json_body() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    recorder = Recorder()
+    scope = http_scope(headers=[(b"content-length", b"2"), (b"content-type", b"text/plain")])
+
+    await middleware(scope, lambda: None, recorder.send)
+
+    assert not called
+    assert recorder.start["status"] == 415
+    assert b"unsupported_media_type" in recorder.body["body"]
+
+
+async def test_content_type_rejects_body_without_header() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    recorder = Recorder()
+
+    await middleware(http_scope(headers=[(b"content-length", b"2")]), lambda: None, recorder.send)
+
+    assert not called
+    assert recorder.start["status"] == 415
+
+
+async def test_content_type_rejects_chunked_body_without_header() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    recorder = Recorder()
+    scope = http_scope(headers=[(b"transfer-encoding", b"chunked")])
+
+    await middleware(scope, lambda: None, recorder.send)
+
+    assert not called
+    assert recorder.start["status"] == 415
+
+
+async def test_content_type_treats_malformed_length_as_body() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    recorder = Recorder()
+    scope = http_scope(headers=[(b"content-length", b"oops")])
+
+    await middleware(scope, lambda: None, recorder.send)
+
+    assert not called
+    assert recorder.start["status"] == 415
+
+
+async def test_content_type_allows_requests_without_body() -> None:
+    called = False
+
+    async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
+        nonlocal called
+        called = True
+
+    middleware = ContentTypeMiddleware(downstream)
+    scope = http_scope(headers=[(b"content-length", b"0")])
+
+    await middleware(scope, lambda: None, Recorder().send)
+
+    assert called
 
 
 async def test_body_limit_ignores_non_body_methods() -> None:

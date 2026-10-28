@@ -20,6 +20,7 @@ from app.core.errors import (
     http_exception_handler,
     problem_payload,
     send_payload_too_large,
+    send_unsupported_media_type,
     spec_for,
     unhandled_exception_handler,
     validation_error_handler,
@@ -170,6 +171,19 @@ async def test_http_exception_handler_404() -> None:
     assert payload["request_id"] == REQUEST_ID
 
 
+async def test_http_exception_handler_400_and_415_are_standardized() -> None:
+    bad_request = await http_exception_handler(make_request(), StarletteHTTPException(400))
+    assert bad_request.status_code == 400
+    assert body_of(bad_request)["code"] == "bad_request"
+
+    unsupported = await http_exception_handler(make_request(), StarletteHTTPException(415))
+    assert unsupported.status_code == 415
+    payload = body_of(unsupported)
+    assert payload["code"] == "unsupported_media_type"
+    assert payload["detail"] == ERROR_CATALOG["unsupported_media_type"].detail
+    assert payload["request_id"] == REQUEST_ID
+
+
 async def test_http_exception_handler_401_has_challenge() -> None:
     response = await http_exception_handler(make_request(), StarletteHTTPException(401))
     assert response.headers["www-authenticate"] == "Bearer"
@@ -205,6 +219,18 @@ def test_send_payload_too_large_includes_request_id() -> None:
     assert end["type"] == "http.response.body"
     payload = json.loads(end["body"])
     assert payload["code"] == "payload_too_large"
+    assert payload["request_id"] == REQUEST_ID
+
+
+def test_send_unsupported_media_type_includes_request_id() -> None:
+    scope = {"type": "http", "state": {"request_id": REQUEST_ID}}
+    start, end = send_unsupported_media_type(scope)
+    assert start["status"] == 415
+    headers = {key: value for key, value in start["headers"]}
+    assert headers[b"content-type"] == b"application/problem+json"
+    assert headers[b"connection"] == b"close"
+    payload = json.loads(end["body"])
+    assert payload["code"] == "unsupported_media_type"
     assert payload["request_id"] == REQUEST_ID
 
 

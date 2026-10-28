@@ -615,6 +615,27 @@ def test_chat_does_not_log_message_content(
     assert secret not in captured.err
 
 
+def test_cors_exposes_quota_headers_on_429(clock: FakeClock) -> None:
+    settings = make_settings(guest_daily_messages=1)
+    origin = {"Origin": "http://localhost:5173"}
+    with client_for(settings, clock) as (client, _):
+        token = _guest_token(client)
+        assert _chat(client, token).status_code == 200
+
+        blocked = client.post(
+            "/api/v1/chat",
+            headers={**_auth(token), **origin},
+            json={"messages": DEFAULT_MESSAGES, "stream": False},
+        )
+
+    assert blocked.status_code == 429
+    assert blocked.headers["access-control-allow-origin"] == "http://localhost:5173"
+    exposed = blocked.headers["access-control-expose-headers"]
+    for header in ("X-RateLimit-Limit", "X-RateLimit-Reset", "Retry-After", "X-Request-ID"):
+        assert header in exposed
+    assert blocked.headers["retry-after"]
+
+
 def test_chat_is_documented(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
     assert "post" in paths["/api/v1/chat"]

@@ -251,6 +251,21 @@ def test_reset_rejects_invalid_scope(client: TestClient) -> None:
     assert body["errors"][0]["field"] == "scope"
 
 
+def test_reset_rejects_unknown_fields(client: TestClient) -> None:
+    token = _admin_token(client)
+
+    response = client.post(
+        "/api/v1/admin/usage/reset",
+        headers=_auth(token),
+        json={"scope": "gid", "value": "x", "extra": True},
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert any(error["field"] == "extra" for error in body["errors"])
+
+
 def test_admin_endpoints_are_documented_with_examples(client: TestClient) -> None:
     spec = client.get("/openapi.json").json()
     paths = spec["paths"]

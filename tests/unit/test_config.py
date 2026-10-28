@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from tests.conftest import PASSWORD_HASH, make_settings
 
 
@@ -37,6 +37,16 @@ def test_log_level_is_normalized() -> None:
 def test_invalid_log_level_is_rejected() -> None:
     with pytest.raises(ValidationError):
         make_settings(log_level="VERBOSE")
+
+
+def test_admin_password_hash_is_required() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, admin_username="admin", jwt_secret="x" * 40)
+
+
+def test_jwt_secret_is_required() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, admin_username="admin", admin_password_hash=PASSWORD_HASH)
 
 
 def test_password_hash_must_have_supported_prefix() -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import pytest
@@ -144,6 +145,8 @@ def test_cors_preflight(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert "GET" in response.headers["access-control-allow-methods"]
+    assert "Authorization" in response.headers["access-control-allow-headers"]
+    assert response.headers["access-control-max-age"] == "600"
     assert response.headers["x-request-id"]
 
 
@@ -159,6 +162,51 @@ def test_cors_exposes_headers(client: TestClient) -> None:
         "Content-Type",
     ):
         assert header in exposed
+
+
+def test_unsupported_media_type_is_standardized(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/login",
+        content=b'{"username":"admin","password":"admin"}',
+        headers={"Content-Type": "text/plain"},
+    )
+
+    assert response.status_code == 415
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["code"] == "unsupported_media_type"
+    assert body["request_id"] == response.headers["x-request-id"]
+    assert response.headers["connection"] == "close"
+
+
+def test_body_without_content_type_is_rejected(client: TestClient) -> None:
+    response = client.post("/api/v1/auth/login", content=b"{}")
+
+    assert response.status_code == 415
+    assert response.json()["code"] == "unsupported_media_type"
+
+
+def test_json_with_charset_is_accepted(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/login",
+        content=json.dumps({"username": "admin", "password": "admin"}).encode(),
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+
+
+def test_post_without_body_is_not_rejected(client: TestClient) -> None:
+    assert client.post("/api/v1/auth/guest").status_code == 200
+
+
+def test_production_adds_hsts() -> None:
+    settings = make_settings(environment="production", jwt_secret="a" * 48)
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/health")
+
+    assert response.headers["strict-transport-security"] == ("max-age=31536000; includeSubDomains")
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 def test_cors_rejects_unknown_origin(client: TestClient) -> None:

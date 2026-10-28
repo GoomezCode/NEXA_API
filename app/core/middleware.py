@@ -8,7 +8,7 @@ import uuid
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config import Settings
-from app.core.errors import send_payload_too_large
+from app.core.errors import send_payload_too_large, send_unsupported_media_type
 from app.core.logging import bind_request_id, get_logger, reset_request_id
 
 _BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -167,4 +167,54 @@ class BodyLimitMiddleware:
         await send(end)
 
 
-__all__ = ["BodyLimitMiddleware", "RequestContextMiddleware"]
+class ContentTypeMiddleware:
+    """Exige `application/json` em corpos não vazios (RNF-SEG-09, 415)."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+        self.logger = get_logger("nexa.request")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("method") not in _BODY_METHODS:
+            await self.app(scope, receive, send)
+            return
+
+        if not _has_body(scope):
+            await self.app(scope, receive, send)
+            return
+
+        content_type = _header(scope, b"content-type")
+        if content_type is None or not _is_json_media_type(content_type):
+            self.logger.warning(
+                "unsupported_media_type",
+                path=scope.get("path", ""),
+                content_type=content_type or "",
+            )
+            start, end = send_unsupported_media_type(scope)
+            await send(start)
+            await send(end)
+            return
+
+        await self.app(scope, receive, send)
+
+
+def _is_json_media_type(value: str) -> bool:
+    """Aceita `application/json` e sufixos `+json`, com parâmetros opcionais."""
+    media_type = value.split(";", 1)[0].strip().lower()
+    return media_type == "application/json" or media_type.endswith("+json")
+
+
+def _has_body(scope: Scope) -> bool:
+    """Há corpo declarado? Requisições sem corpo (ex.: `POST /auth/guest`) passam."""
+    raw_length = _header(scope, b"content-length")
+    if raw_length is not None:
+        try:
+            if int(raw_length) > 0:
+                return True
+        except ValueError:
+            return True
+    transfer_encoding = _header(scope, b"transfer-encoding")
+    return bool(transfer_encoding and transfer_encoding.strip())
+
+
+__all__ = ["BodyLimitMiddleware", "ContentTypeMiddleware", "RequestContextMiddleware"]
