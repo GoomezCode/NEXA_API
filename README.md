@@ -75,6 +75,7 @@ tests/
 
 ## Fases
 
-A implementação segue o plano: **F0 Fundação** e **F1 Autenticação** (concluídas),
-F2 Provedores de IA, F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração,
-F7 Hardening, F8 Observabilidade, F9 Empacotamento, F10 Conformidade.
+A implementação segue o plano: **F0 Fundação**, **F1 Autenticação** e
+**F2 Provedores de IA** (concluídas); F3 Cotas, F4 Chat JSON, F5 Streaming SSE,
+F6 Administração, F7 Hardening, F8 Observabilidade, F9 Empacotamento,
+F10 Conformidade.

@@ -476,17 +476,21 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] `ai/base.py`: `AIProvider`, `GenerationResult`, exceções `ProviderUnavailable`, `ProviderTimeout`, `ProviderError`.
-- [ ] `ai/ollama.py`: `generate` e `stream` sobre `POST /api/chat`, mapeando `done`/`finish_reason` e tokens quando disponíveis.
-- [ ] `ai/cloud.py`: esqueleto que levanta erro de configuração.
-- [ ] `ai/factory.py`: `ollama` | `cloud` (+ `CLOUD_PROVIDER`), erro claro na inicialização.
-- [ ] `ai/fake.py`: respostas determinísticas, modo falha, modo lento — usado em testes.
-- [ ] `health()` por provedor (usado em `/health/ready` e `/admin/ai/status`).
-- [ ] Timeouts: total (`AI_TIMEOUT_SECONDS`) e inatividade no stream (`AI_STREAM_IDLE_TIMEOUT_SECONDS`).
+- [x] `ai/base.py`: `AIProvider`, `ChatMessage`, `GenerationResult`/`GenerationChunk`, `FinishReason` e exceções `ProviderUnavailable`, `ProviderTimeout`, `ProviderError`, `ProviderConfigurationError`.
+- [x] `ai/ollama.py`: `generate` e `stream` sobre `POST /api/chat`, mapeando `done`/`done_reason` e tokens quando disponíveis; `health()` em `GET /api/tags`.
+- [x] `ai/cloud.py`: esqueleto do `CloudProvider` que falha com `ProviderConfigurationError` (§5.1).
+- [x] `ai/factory.py`: registry `ollama` | `cloud` | `fake`, `build_provider`, `register_provider` e `available_providers`; cloud e nomes desconhecidos falham na inicialização com mensagem clara.
+- [x] `ai/fake.py`: respostas determinísticas, modo falha (antes/depois de N trechos), modo lento, health controlável e registro de chamadas — usado em testes.
+- [x] `health()` por provedor, ligado a `/health/ready` via `app.state.ai_health`; provider injetável em `create_app`.
+- [x] Timeouts: total (`AI_TIMEOUT_SECONDS`) e inatividade no stream (`AI_STREAM_IDLE_TIMEOUT_SECONDS`), com mapeamento para `ProviderTimeout`.
 
-**Testes:** `respx` simulando Ollama (sucesso, 500, timeout, stream truncado); factory; fake provider.
+**Testes:** `respx` simulando Ollama (sucesso, 500, timeout, conexão recusada, JSON inválido, stream completo/truncado/erro, health); factory e registro (CA-15); fake provider; `/health/ready` com fake saudável, doente e com exceção.
 
 **Gate:** CA-14, CA-15 (com fake provider); `/health/ready` reflete indisponibilidade.
+
+> **Concluída em 28/10/2026:** 224 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; smoke test confirma `/health` 200 e `/health/ready` 503 com o Ollama
+> parado, e falha rápida e clara ao configurar `AI_PROVIDER=cloud`.
 
 ---
 

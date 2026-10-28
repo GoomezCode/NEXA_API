@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.ai import AIProvider, build_provider
 from app.api import auth, system
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
@@ -37,10 +38,20 @@ API do chat de IA via web, conforme o SRS v1.1.
 """
 
 
-def create_app(settings: Settings | None = None, *, clock: Clock | None = None) -> FastAPI:
-    """Cria a aplicação com configuração explícita ou vinda do ambiente."""
+def create_app(
+    settings: Settings | None = None,
+    *,
+    clock: Clock | None = None,
+    provider: AIProvider | None = None,
+) -> FastAPI:
+    """Cria a aplicação com configuração explícita ou vinda do ambiente.
+
+    `provider` permite injetar qualquer implementação de `AIProvider` (testes e
+    CA-15); sem ele, a factory escolhe pelo `AI_PROVIDER` configurado.
+    """
     resolved = settings or get_settings()
     resolved_clock = clock or SystemClock()
+    resolved_provider = provider or build_provider(resolved)
     configure_logging(resolved.log_level)
 
     app = FastAPI(
@@ -52,11 +63,13 @@ def create_app(settings: Settings | None = None, *, clock: Clock | None = None) 
         openapi_url="/openapi.json",
     )
 
-    # Estado compartilhado. O check de IA é registrado na fase de provedores.
+    # Estado compartilhado. O chat (F4/F5) consome apenas o contrato `AIProvider`.
     app.state.settings = resolved
     app.state.clock = resolved_clock
-    app.state.ai_health = None
-    app.state.ai_provider_name = resolved.ai_provider
+    app.state.ai_provider = resolved_provider
+    app.state.ai_provider_name = resolved_provider.name
+    app.state.ai_model = resolved_provider.model
+    app.state.ai_health = resolved_provider.health
     app.state.auth_service = AuthService(resolved, resolved_clock)
     app.state.login_limiter = SlidingWindowLimiter(
         resolved_clock,

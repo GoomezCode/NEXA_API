@@ -9,6 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.ai.fake import FakeProvider
 from app.config import Settings
 from app.main import create_app
 
@@ -59,8 +60,14 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-def app(settings: Settings, clock: FakeClock) -> FastAPI:
-    return create_app(settings, clock=clock)
+def provider() -> FakeProvider:
+    """Provedor determinístico, sem acesso à rede."""
+    return FakeProvider()
+
+
+@pytest.fixture
+def app(settings: Settings, clock: FakeClock, provider: FakeProvider) -> FastAPI:
+    return create_app(settings, clock=clock, provider=provider)
 
 
 @pytest.fixture

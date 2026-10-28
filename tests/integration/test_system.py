@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
 
 from app import __version__
+from app.ai.fake import FakeProvider
 from app.main import create_app
 from tests.conftest import make_settings
 
@@ -50,43 +51,35 @@ def test_security_headers(client: TestClient) -> None:
     assert "strict-transport-security" not in response.headers
 
 
-def test_readiness_without_provider_returns_ok(client: TestClient) -> None:
+def test_readiness_without_health_check_returns_ok(client: TestClient, app: FastAPI) -> None:
+    app.state.ai_health = None
     response = client.get("/health/ready")
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["provider"] == "ollama"
+    assert body["provider"] == "fake"
     _assert_uuid(body["request_id"])
 
 
-def test_readiness_with_healthy_provider(client: TestClient, app: FastAPI) -> None:
-    async def check() -> bool:
-        return True
-
-    app.state.ai_health = check
+def test_readiness_with_healthy_provider(client: TestClient) -> None:
     response = client.get("/health/ready")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.json()["provider"] == "fake"
 
 
 def test_readiness_with_unhealthy_provider(client: TestClient, app: FastAPI) -> None:
-    async def check() -> bool:
-        return False
-
-    app.state.ai_health = check
+    app.state.ai_health = FakeProvider(healthy=False).health
     response = client.get("/health/ready")
     assert response.status_code == 503
     body = response.json()
     assert body["status"] == "unavailable"
-    assert body["provider"] == "ollama"
+    assert body["provider"] == "fake"
     assert response.headers["x-request-id"] == body["request_id"]
 
 
 def test_readiness_with_provider_exception(client: TestClient, app: FastAPI) -> None:
-    async def check() -> bool:
-        raise RuntimeError("ollama fora do ar")
-
-    app.state.ai_health = check
+    app.state.ai_health = FakeProvider(health_error=RuntimeError("ollama fora do ar")).health
     response = client.get("/health/ready")
     assert response.status_code == 503
     assert response.json()["status"] == "unavailable"
