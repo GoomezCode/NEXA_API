@@ -432,17 +432,20 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] Criar `pyproject.toml`, `requirements.txt`/`requirements-dev.txt`, `Makefile`, `.gitignore` (já existe), `.env.example`.
-- [ ] `config.Settings` com todas as variáveis e validação fail-fast.
-- [ ] `core/errors.py`: catálogo de `code`, `ProblemDetails`, handlers (`RequestValidationError` → `errors[]`).
-- [ ] `core/logging.py`: JSON + mascaramento (`Authorization`, `X-Api-Key`, `password`).
-- [ ] `core/middleware.py`: `request_id`, body limit, security headers.
-- [ ] `core/clock.py` + `core/ip.py` (`TRUSTED_PROXIES`).
-- [ ] `main.create_app()` + `/health` + `/health/ready` (sem provider real ainda).
-- [ ] `scripts/hash_password.py`.
-- [ ] CI inicial (lint, mypy, pytest) e pre-commit.
+- [x] Criar `pyproject.toml`, `requirements.txt`/`requirements-dev.txt`, `Makefile`, `.gitignore` (já existe), `.env.example`.
+- [x] `config.Settings` com todas as variáveis e validação fail-fast.
+- [x] `core/errors.py`: catálogo de `code`, `ProblemDetails`, handlers (`RequestValidationError` → `errors[]`).
+- [x] `core/logging.py`: JSON + mascaramento (`Authorization`, `X-Api-Key`, `password`).
+- [x] `core/middleware.py`: `request_id`, body limit, security headers.
+- [x] `core/clock.py` + `core/ip.py` (`TRUSTED_PROXIES`).
+- [x] `main.create_app()` + `/health` + `/health/ready` (sem provider real ainda).
+- [x] `scripts/hash_password.py`.
+- [x] CI inicial (lint, mypy, pytest) e pre-commit.
 
 **Gate:** app sobe, `/health` responde com `X-Request-ID`, erros no formato do SRS, CI verde.
+
+> **Concluída em 28/10/2026:** 96 testes, cobertura de 98% em `app/`, Ruff e mypy
+> verdes; smoke test com `uvicorn` validado (`/health`, `/health/ready` e erro 404).
 
 ---
 
