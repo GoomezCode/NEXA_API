@@ -13,7 +13,7 @@ from app.ai.base import ProviderError, ProviderTimeout
 from app.ai.fake import FakeProvider
 from app.config import Settings
 from app.main import create_app
-from tests.conftest import FakeClock, make_settings
+from tests.conftest import FakeClock, make_settings, parse_sse
 
 DEFAULT_MESSAGES = [{"role": "user", "content": "Olá"}]
 RESET_EPOCH = str(int(datetime(2026, 10, 29, 0, 0, tzinfo=UTC).timestamp()))
@@ -407,24 +407,154 @@ def test_finish_reason_is_returned(
     assert response.json()["finish_reason"] == finish_reason
 
 
-def test_streaming_is_not_available_in_json_phase(
+def test_guest_stream_success(client: TestClient, provider: FakeProvider) -> None:
+    token = _guest_token(client)
+
+    response = _chat(client, token, stream=True)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/event-stream"
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["connection"] == "keep-alive"
+    assert response.headers["x-accel-buffering"] == "no"
+    assert response.headers["x-ratelimit-limit"] == "10"
+    assert response.headers["x-ratelimit-remaining"] == "9"
+    assert response.headers["x-ratelimit-reset"] == RESET_EPOCH
+
+    events = parse_sse(response.text)
+    assert [event.data["content"] for event in events if event.event is None] == [
+        "Olá",
+        " do fake!",
+    ]
+    assert events[-1].event == "done"
+    assert events[-1].data == {
+        "status": "complete",
+        "finish_reason": "stop",
+        "usage": {
+            "daily_limit": 10,
+            "daily_remaining": 9,
+            "per_minute_limit": 3,
+            "per_minute_remaining": 2,
+            "resets_at": "2026-10-29T00:00:00Z",
+        },
+    }
+    assert provider.calls[0].streamed is True
+
+
+def test_stream_is_the_default_mode(client: TestClient, provider: FakeProvider) -> None:
+    token = _guest_token(client)
+
+    response = client.post(
+        "/api/v1/chat", headers=_auth(token), json={"messages": DEFAULT_MESSAGES}
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "text/event-stream"
+    assert provider.calls[0].streamed is True
+
+
+def test_admin_stream_has_no_daily_quota_headers(client: TestClient, settings: Settings) -> None:
+    token = _admin_token(client)
+
+    response = _chat(client, token, stream=True)
+
+    assert response.status_code == 200
+    assert "x-ratelimit-limit" not in response.headers
+    events = parse_sse(response.text)
+    assert events[-1].event == "done"
+    assert events[-1].data["usage"] == {
+        "daily_limit": None,
+        "daily_remaining": None,
+        "per_minute_limit": settings.rate_limit_admin_chat_per_min,
+        "per_minute_remaining": settings.rate_limit_admin_chat_per_min - 1,
+        "resets_at": None,
+    }
+
+
+def test_stream_keeps_rate_limit_headers_on_429(clock: FakeClock) -> None:
+    settings = make_settings(guest_daily_messages=1)
+    with client_for(settings, clock) as (client, provider):
+        token = _guest_token(client)
+        assert _chat(client, token, stream=True).status_code == 200
+
+        blocked = _chat(client, token, stream=True)
+
+    assert blocked.status_code == 429
+    assert blocked.headers["content-type"] == "application/problem+json"
+    assert blocked.json()["code"] == "guest_daily_limit_reached"
+    assert blocked.headers["x-ratelimit-remaining"] == "0"
+    assert len(provider.calls) == 1
+
+
+def test_stream_error_before_first_chunk_refunds_quota(
     client: TestClient, provider: FakeProvider
 ) -> None:
     token = _guest_token(client)
+    provider.error = ProviderError("falhou")
 
-    explicit = _chat(client, token, stream=True)
-    default = client.post("/api/v1/chat", headers=_auth(token), json={"messages": DEFAULT_MESSAGES})
+    response = _chat(client, token, stream=True)
 
-    assert explicit.status_code == 400
-    assert explicit.json()["code"] == "bad_request"
-    assert default.status_code == 400
-    assert provider.calls == []
+    assert response.status_code == 200
+    events = parse_sse(response.text)
+    assert [event.event for event in events] == ["error"]
+    assert events[0].data["code"] == "ai_provider_error"
+    assert events[0].data["request_id"] == response.headers["x-request-id"]
 
     usage = client.get("/api/v1/usage", headers=_auth(token)).json()
     assert usage["daily_remaining"] == 10
-    # RF-USO-08: os cabeçalhos de cota acompanham também as respostas de erro.
-    assert explicit.headers["x-ratelimit-remaining"] == "10"
-    assert explicit.headers["x-ratelimit-reset"] == RESET_EPOCH
+
+
+def test_stream_timeout_before_first_chunk_reports_timeout(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    token = _guest_token(client)
+    provider.error = ProviderTimeout("lento")
+
+    response = _chat(client, token, stream=True)
+
+    assert response.status_code == 200
+    events = parse_sse(response.text)
+    assert events[0].event == "error"
+    assert events[0].data["code"] == "ai_provider_timeout"
+
+
+def test_stream_error_after_first_chunk_keeps_quota(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    token = _guest_token(client)
+    provider.error = "unavailable"
+    provider.error_after_chunks = 1
+
+    response = _chat(client, token, stream=True)
+
+    events = parse_sse(response.text)
+    assert [event.data["content"] for event in events if event.event is None] == ["Olá"]
+    assert events[-1].event == "error"
+    assert events[-1].data["code"] == "ai_provider_error"
+
+    usage = client.get("/api/v1/usage", headers=_auth(token)).json()
+    assert usage["daily_remaining"] == 9
+
+
+def test_stream_does_not_log_message_content(
+    client: TestClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    token = _guest_token(client)
+    secret = "SEGREDO-NO-STREAM-456"
+    capsys.readouterr()
+
+    response = _chat(client, token, [{"role": "user", "content": secret}], stream=True)
+
+    assert response.status_code == 200
+    captured = capsys.readouterr()
+    assert secret not in captured.out
+    assert secret not in captured.err
+
+
+def test_stream_is_documented(client: TestClient) -> None:
+    operation = client.get("/openapi.json").json()["paths"]["/api/v1/chat"]["post"]
+
+    assert "text/event-stream" in operation["responses"]["200"]["content"]
 
 
 def test_guest_validation_error_carries_quota_headers(

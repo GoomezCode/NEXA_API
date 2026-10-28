@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -74,3 +77,33 @@ def app(settings: Settings, clock: FakeClock, provider: FakeProvider) -> FastAPI
 def client(app: FastAPI) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@dataclass(frozen=True, slots=True)
+class SSEEvent:
+    """Evento SSE já interpretado (`event`, `data` e comentário/heartbeat)."""
+
+    event: str | None
+    data: dict[str, Any] | None
+    comment: str | None
+
+
+def parse_sse(payload: str) -> list[SSEEvent]:
+    """Interpreta o corpo `text/event-stream` em uma lista de eventos."""
+    events: list[SSEEvent] = []
+    for block in payload.split("\n\n"):
+        if not block.strip():
+            continue
+        name: str | None = None
+        comment: str | None = None
+        data_lines: list[str] = []
+        for line in block.splitlines():
+            if line.startswith(":"):
+                comment = line[1:].strip()
+            elif line.startswith("event:"):
+                name = line[len("event:") :].strip()
+            elif line.startswith("data:"):
+                data_lines.append(line[len("data:") :].strip())
+        data = json.loads("\n".join(data_lines)) if data_lines else None
+        events.append(SSEEvent(event=name, data=data, comment=comment))
+    return events

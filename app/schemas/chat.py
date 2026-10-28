@@ -63,9 +63,40 @@ class ChatResponse(BaseModel):
     usage: UsageInfo
 
 
+class StreamChunk(BaseModel):
+    """Pedaço de texto do streaming (`data: {"content": ...}`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str
+
+
+class StreamDone(BaseModel):
+    """Evento final `done` (RF-CHAT-12)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["complete"] = "complete"
+    finish_reason: FinishReason
+    usage: UsageInfo
+
+
+class StreamError(BaseModel):
+    """Evento `error` emitido depois que o fluxo já começou (RF-CHAT-08)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    detail: str
+    request_id: str
+
+
 __all__ = [
     "AssistantMessage",
     "ChatMessageInput",
     "ChatRequest",
     "ChatResponse",
+    "StreamChunk",
+    "StreamDone",
+    "StreamError",
 ]

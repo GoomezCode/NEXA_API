@@ -550,17 +550,24 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] `StreamingResponse` com headers de 3.1.1 e `X-Accel-Buffering: no`.
-- [ ] Formato: `data: {"content": ...}`, `event: done`, `event: error`; heartbeat `: ping` a cada 15 s.
-- [ ] Consumo de cota antes do stream; `done` com `finish_reason` e `usage`.
-- [ ] Primeiro trecho marca consumo definitivo; falha anterior dispara refund (`gid` + IP).
-- [ ] Cancelamento por desconexão (`request.is_disconnected()`/`CancelledError`) → fecha o stream do provider e aplica refund se antes do 1º trecho.
-- [ ] Erros pós-início sem trocar o status HTTP.
-- [ ] Parser SSE nas fixtures de teste.
+- [x] `StreamingResponse` com headers de 3.1.1 e `X-Accel-Buffering: no`.
+- [x] Formato: `data: {"content": ...}`, `event: done`, `event: error`; heartbeat `: ping` a cada 15 s (`core/sse.py`).
+- [x] Consumo de cota antes do stream; `done` com `finish_reason` e `usage`.
+- [x] Primeiro trecho marca consumo definitivo; falha anterior dispara refund (`gid` + IP).
+- [x] Cancelamento por desconexão (`CancelledError`/`aclose`) → fecha o stream do provider e aplica refund se antes do 1º trecho; o refund roda em task própria para sobreviver ao cancelamento do cliente.
+- [x] Erros pós-início sem trocar o status HTTP.
+- [x] Parser SSE nas fixtures de teste (`parse_sse` em `tests/conftest.py`).
+- [x] Inatividade acima de `AI_STREAM_IDLE_TIMEOUT_SECONDS` encerra com evento `ai_provider_timeout` (RNF-CON-01).
 
 **Testes:** fluxo completo, heartbeat, falha antes/depois do 1º trecho, desconexão no meio, limites de saída, headers.
 
 **Gate:** CA-04, CA-13 (stream), CA-14 (evento `error`), CA-21.
+
+> **Concluída em 28/10/2026:** 353 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; smoke test com servidor Ollama falso (chunks incrementais, `done` com
+> `usage`, headers de SSE) e com o provedor parado (`event: error` + refund);
+> desconexão real via `curl` validada antes do 1º trecho (refund) e no meio
+> (cota mantida).
 
 ---
 

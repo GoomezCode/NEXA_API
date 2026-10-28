@@ -7,17 +7,17 @@ from typing import cast
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.ai.base import (
     AIProvider,
     ChatMessage,
     ProviderError,
-    ProviderTimeout,
 )
 from app.api.deps import CurrentUser, get_current_user
 from app.config import Settings
 from app.core.chat import context_errors
+from app.core.chat_stream import StreamSession, error_code, stream_events
 from app.core.errors import (
     ApiError,
     request_id_of,
@@ -26,6 +26,7 @@ from app.core.errors import (
 )
 from app.core.ip import get_client_ip
 from app.core.logging import get_logger
+from app.core.sse import SSE_HEADERS
 from app.core.usage import rate_limit_headers
 from app.core.usage_store import UsageDecision, UsageStore
 from app.schemas.chat import AssistantMessage, ChatRequest, ChatResponse
@@ -93,9 +94,7 @@ async def validation_error_with_quota(request: Request, exc: Exception) -> JSONR
 
 
 def _provider_error(exc: ProviderError) -> ApiError:
-    if isinstance(exc, ProviderTimeout):
-        return ApiError("ai_provider_timeout")
-    return ApiError("ai_provider_error")
+    return ApiError(error_code(exc))
 
 
 @router.post(
@@ -104,9 +103,27 @@ def _provider_error(exc: ProviderError) -> ApiError:
     summary="Envia mensagens ao provedor de IA",
     description=(
         "Recebe o contexto completo e devolve a resposta do modelo. "
-        "`stream = false` retorna JSON; o modo SSE está descrito em 3.7.3."
+        "Com `stream = false` a resposta é um JSON completo; com `stream = true` "
+        "(padrão) a resposta é um fluxo SSE com `data:` por trecho, evento "
+        "`done` no fim e evento `error` em falhas após o início (3.7.3)."
     ),
     responses={
+        status.HTTP_200_OK: {
+            "description": "Resposta JSON (`stream = false`) ou fluxo SSE (`stream = true`).",
+            "content": {
+                "text/event-stream": {
+                    "schema": {"type": "string"},
+                    "example": (
+                        'data: {"content":"SSE é "}\n\n'
+                        "event: done\n"
+                        'data: {"status":"complete","finish_reason":"stop",'
+                        '"usage":{"daily_limit":10,"daily_remaining":6,'
+                        '"per_minute_limit":3,"per_minute_remaining":2,'
+                        '"resets_at":"2026-10-29T00:00:00Z"}}\n\n'
+                    ),
+                }
+            },
+        },
         status.HTTP_401_UNAUTHORIZED: {"description": "Token ausente ou inválido."},
         status.HTTP_422_UNPROCESSABLE_CONTENT: {
             "description": "Contexto inválido ou acima dos limites do papel."
@@ -121,19 +138,10 @@ async def chat(
     request: Request,
     response: Response,
     user: CurrentUser = Depends(get_current_user),
-) -> ChatResponse:
+) -> ChatResponse | StreamingResponse:
     settings = cast(Settings, request.app.state.settings)
     ip = get_client_ip(request, settings.trusted_proxies)
     store = cast(UsageStore, request.app.state.usage_store)
-
-    if payload.stream:
-        # O modo SSE é implementado na fase de streaming; por ora, só JSON.
-        headers = await _quota_headers(store, user=user, ip=ip)
-        raise ApiError(
-            "bad_request",
-            detail="O modo streaming não está disponível nesta versão da API.",
-            headers=headers,
-        )
 
     errors = context_errors(payload.messages, role=user.role, settings=settings)
     if errors:
@@ -146,6 +154,27 @@ async def chat(
 
     provider = cast(AIProvider, request.app.state.ai_provider)
     context = _build_context(payload, settings)
+
+    if payload.stream:
+        # RF-CHAT-03/07: o consumo já ocorreu; o fluxo controla refund e falhas.
+        session = StreamSession(
+            provider=provider,
+            messages=context,
+            usage=usage,
+            store=store,
+            role=user.role,
+            subject=user.subject,
+            ip=ip,
+            max_tokens=settings.ai_max_output_tokens,
+            max_seconds=settings.ai_max_output_seconds,
+            request_id=request_id_of(request),
+            idle_timeout_seconds=settings.ai_stream_idle_timeout_seconds,
+        )
+        return StreamingResponse(
+            stream_events(session),
+            headers={**rate_limit_headers(usage), **SSE_HEADERS},
+        )
+
     started = time.perf_counter()
 
     try:
