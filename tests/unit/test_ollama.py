@@ -307,3 +307,160 @@ def test_provider_exposes_name_and_model() -> None:
     provider = make_provider()
     assert provider.name == "ollama"
     assert provider.model == "llama3.1"
+
+
+@respx.mock
+async def test_list_models_parses_tags_and_sorts_by_name() -> None:
+    respx.get(TAGS_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "name": "zeta:latest",
+                        "size": 0,
+                        "modified_at": "2026-10-28T14:30:00.123456789Z",
+                        "details": {
+                            "family": "zeta",
+                            "parameter_size": "0.5B",
+                            "quantization_level": "Q8_0",
+                        },
+                    },
+                    {"name": "alpha:latest", "size": 42},
+                    {"name": 10},
+                    {"size": 1},
+                    "ignorado",
+                ]
+            },
+        )
+    )
+
+    models = await make_provider().list_models(request_id="req-tags")
+
+    assert [model.name for model in models] == ["alpha:latest", "zeta:latest"]
+    assert models[0].size_bytes == 42
+    assert models[0].modified_at is None
+    assert models[0].family is None
+    assert models[1].size_bytes == 0
+    assert models[1].family == "zeta"
+    assert models[1].parameter_size == "0.5B"
+    assert models[1].quantization_level == "Q8_0"
+    assert models[1].modified_at is not None
+    assert models[1].modified_at.isoformat() == "2026-10-28T14:30:00.123456+00:00"
+
+    assert respx.calls.last.request.headers["x-request-id"] == "req-tags"
+
+
+@respx.mock
+async def test_list_models_accepts_naive_dates_and_rejects_invalid_ones() -> None:
+    respx.get(TAGS_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "models": [
+                    {"name": "sem-fuso", "modified_at": "2026-10-28T10:00:00"},
+                    {"name": "invalida", "modified_at": "ontem"},
+                    {"name": "sem-tipo", "modified_at": 123},
+                ]
+            },
+        )
+    )
+
+    models = await make_provider().list_models()
+
+    by_name = {model.name: model for model in models}
+    assert by_name["sem-fuso"].modified_at is not None
+    assert by_name["sem-fuso"].modified_at.tzinfo is not None
+    assert by_name["invalida"].modified_at is None
+    assert by_name["sem-tipo"].modified_at is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"models": "x"},
+        {"fundamentals": []},
+        [],
+    ],
+)
+@respx.mock
+async def test_list_models_rejects_invalid_shapes(payload: object) -> None:
+    respx.get(TAGS_URL).mock(return_value=httpx.Response(200, json=payload))
+
+    with pytest.raises(ProviderError):
+        await make_provider().list_models()
+
+
+@respx.mock
+async def test_list_models_rejects_invalid_json() -> None:
+    respx.get(TAGS_URL).mock(return_value=httpx.Response(200, text="não é json"))
+
+    with pytest.raises(ProviderError):
+        await make_provider().list_models()
+
+
+@respx.mock
+async def test_list_models_maps_http_error() -> None:
+    respx.get(TAGS_URL).mock(return_value=httpx.Response(503, text="fora"))
+
+    with pytest.raises(ProviderError) as exc_info:
+        await make_provider().list_models()
+    assert not isinstance(exc_info.value, ProviderUnavailable)
+    assert "503" in str(exc_info.value)
+
+
+@respx.mock
+async def test_list_models_maps_connect_error() -> None:
+    respx.get(TAGS_URL).mock(side_effect=httpx.ConnectError("recusado"))
+
+    with pytest.raises(ProviderUnavailable):
+        await make_provider().list_models()
+
+
+@respx.mock
+async def test_list_models_maps_read_timeout() -> None:
+    respx.get(TAGS_URL).mock(side_effect=httpx.ReadTimeout("lento"))
+
+    with pytest.raises(ProviderTimeout):
+        await make_provider().list_models()
+
+
+@respx.mock
+async def test_list_models_maps_total_deadline() -> None:
+    async def slow(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.2)
+        return httpx.Response(200, json={"models": []})
+
+    respx.get(TAGS_URL).mock(side_effect=slow)
+
+    with pytest.raises(ProviderTimeout):
+        await make_provider(ai_timeout_seconds=0.01).list_models()
+
+
+@respx.mock
+async def test_generate_uses_request_model() -> None:
+    route = respx.post(CHAT_URL).mock(
+        return_value=httpx.Response(200, json={"message": {"content": "ok"}})
+    )
+
+    await make_provider().generate(MESSAGES, max_tokens=10, max_seconds=10, model="outro:7b")
+
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["model"] == "outro:7b"
+
+
+@respx.mock
+async def test_stream_uses_request_model() -> None:
+    route = respx.post(CHAT_URL).mock(
+        return_value=httpx.Response(200, content=b'{"message":{"content":"ok"},"done":true}\n')
+    )
+
+    _ = [
+        chunk
+        async for chunk in make_provider().stream(
+            MESSAGES, max_tokens=10, max_seconds=10, model="outro:7b"
+        )
+    ]
+
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["model"] == "outro:7b"

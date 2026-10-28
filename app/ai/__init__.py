@@ -7,10 +7,12 @@ from app.ai.base import (
     GenerationChunk,
     GenerationResult,
     MessageRole,
+    ModelInfo,
     ProviderConfigurationError,
     ProviderError,
     ProviderTimeout,
     ProviderUnavailable,
+    provider_error_code,
 )
 from app.ai.cloud import CloudProvider
 from app.ai.factory import (
@@ -30,6 +32,7 @@ __all__ = [
     "GenerationChunk",
     "GenerationResult",
     "MessageRole",
+    "ModelInfo",
     "OllamaProvider",
     "ProviderConfigurationError",
     "ProviderError",
@@ -37,5 +40,6 @@ __all__ = [
     "ProviderUnavailable",
     "available_providers",
     "build_provider",
+    "provider_error_code",
     "register_provider",
 ]

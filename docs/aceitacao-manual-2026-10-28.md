@@ -1,6 +1,8 @@
 # Aceitação manual com Ollama real — 28/10/2026
 
-Rodada de aceitação da API v1.0.0 contra um Ollama local, sem provedor *fake*.
+Rodada de aceitação da API contra um Ollama local, sem provedor *fake*
+(release `v1.0.0`), complementada nesta mesma data com o catálogo e a seleção de
+modelo da `v1.1.0` (seção F11).
 Complementa os testes automatizados da [`matriz CA → teste`](matriz-ca-testes.md).
 
 ## Ambiente
@@ -70,6 +72,24 @@ data: {"status":"complete","finish_reason":"length","usage":{...}}
 {"type":"about:blank","title":"Limite diário excedido","status":429,
  "code":"guest_daily_limit_reached","detail":"A cota diária de mensagens foi atingida.",
  "request_id":"...","resets_at":"2026-10-29T00:00:00Z"}
+```
+
+## Complemento F11 — catálogo e seleção de modelo (v1.1.0)
+
+Reexecutado em 28/10/2026 com o mesmo Ollama 0.40.7 e `qwen3-coder:latest`,
+via `TestClient` em processo com `OllamaProvider` real:
+
+| Passo | Comando (resumo) | Resultado |
+|---|---|---|
+| CA-24 | `GET /api/v1/models` (guest) | `200` em ~0,05 s; `provider=ollama`, `default_model=qwen3-coder:latest`, modelo com tamanho, família `qwen3moe`, parâmetros `30.5B`, quantização `Q4_K_M` e `selectable=true` |
+| CA-25 | `POST /api/v1/chat` com `model=qwen3-coder` (sem tag) | `200` em ~19 s; resposta com `model=qwen3-coder:latest` (nome resolvido) e `finish_reason=stop`; cota debitada normalmente |
+| CA-25 | `/usage` após a chamada | `daily_remaining` passou de 3 para 2 |
+
+```json
+{"provider":"ollama","default_model":"qwen3-coder:latest",
+ "models":[{"name":"qwen3-coder:latest","size_bytes":18556700761,
+ "modified_at":"2026-10-28T19:12:02Z","family":"qwen3moe",
+ "parameter_size":"30.5B","quantization_level":"Q4_K_M","selectable":true}]}
 ```
 
 ## Observações

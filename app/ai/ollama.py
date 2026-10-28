@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -14,6 +15,7 @@ from app.ai.base import (
     FinishReason,
     GenerationChunk,
     GenerationResult,
+    ModelInfo,
     ProviderError,
     ProviderTimeout,
     ProviderUnavailable,
@@ -28,6 +30,61 @@ def _as_int(value: object) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     return None
+
+
+def _as_size(value: object) -> int | None:
+    size = _as_int(value)
+    return size if size is not None and size >= 0 else None
+
+
+def _as_text(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def parse_modified_at(value: object) -> datetime | None:
+    """Converte o `modified_at` do Ollama em UTC; datas inválidas viram `None`."""
+    text = _as_text(value)
+    if text is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def parse_models(data: object) -> list[ModelInfo]:
+    """Normaliza `GET /api/tags`; entradas sem nome são ignoradas."""
+    if not isinstance(data, dict):
+        raise ProviderError("Resposta inválida do Ollama.")
+    raw_models = data.get("models")
+    if not isinstance(raw_models, list):
+        raise ProviderError("Resposta do Ollama sem a lista de modelos.")
+
+    models: list[ModelInfo] = []
+    for item in raw_models:
+        if not isinstance(item, dict):
+            continue
+        name = _as_text(item.get("name"))
+        if name is None or not name.strip():
+            continue
+        details = item.get("details")
+        if not isinstance(details, dict):
+            details = {}
+        models.append(
+            ModelInfo(
+                name=name,
+                size_bytes=_as_size(item.get("size")),
+                modified_at=parse_modified_at(item.get("modified_at")),
+                family=_as_text(details.get("family")),
+                parameter_size=_as_text(details.get("parameter_size")),
+                quantization_level=_as_text(details.get("quantization_level")),
+            )
+        )
+    models.sort(key=lambda model: model.name)
+    return models
 
 
 def map_finish_reason(value: object) -> FinishReason:
@@ -58,8 +115,11 @@ class OllamaProvider:
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> GenerationResult:
-        payload = self._payload(messages, max_tokens=max_tokens, stream=False)
+        payload = self._payload(
+            messages, max_tokens=max_tokens, stream=False, model=model or self.model
+        )
         try:
             async with asyncio.timeout(max_seconds):
                 async with httpx.AsyncClient(timeout=self._timeout()) as client:
@@ -92,8 +152,11 @@ class OllamaProvider:
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[GenerationChunk]:
-        payload = self._payload(messages, max_tokens=max_tokens, stream=True)
+        payload = self._payload(
+            messages, max_tokens=max_tokens, stream=True, model=model or self.model
+        )
         try:
             async with (
                 asyncio.timeout(max_seconds),
@@ -140,15 +203,37 @@ class OllamaProvider:
         except (TimeoutError, httpx.HTTPError, ValueError):
             return False
 
+    async def list_models(self, *, request_id: str | None = None) -> list[ModelInfo]:
+        """Lista os modelos instalados via `GET /api/tags` (RF-CHAT-13)."""
+        timeout = min(_HEALTH_TIMEOUT_SECONDS, self._settings.ai_timeout_seconds)
+        try:
+            async with asyncio.timeout(timeout):
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.get(self._tags_url, headers=self._headers(request_id))
+                    response.raise_for_status()
+                    data = response.json()
+        except TimeoutError as exc:
+            raise ProviderTimeout("Ollama não respondeu a tempo.") from exc
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeout("Ollama não respondeu a tempo.") from exc
+        except httpx.HTTPStatusError as exc:
+            raise ProviderError(f"Ollama retornou HTTP {exc.response.status_code}.") from exc
+        except httpx.HTTPError as exc:
+            raise ProviderUnavailable("Não foi possível conectar ao Ollama.") from exc
+        except ValueError as exc:
+            raise ProviderError("Resposta inválida do Ollama.") from exc
+        return parse_models(data)
+
     def _payload(
         self,
         messages: Sequence[ChatMessage],
         *,
         max_tokens: int,
         stream: bool,
+        model: str,
     ) -> dict[str, Any]:
         return {
-            "model": self.model,
+            "model": model,
             "messages": [{"role": item.role, "content": item.content} for item in messages],
             "stream": stream,
             "options": {"num_predict": max_tokens},

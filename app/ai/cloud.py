@@ -13,6 +13,7 @@ from app.ai.base import (
     ChatMessage,
     GenerationChunk,
     GenerationResult,
+    ModelInfo,
     ProviderConfigurationError,
 )
 from app.config import Settings
@@ -40,6 +41,7 @@ class CloudProvider:
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> GenerationResult:
         raise ProviderConfigurationError(_MESSAGE)
 
@@ -50,11 +52,15 @@ class CloudProvider:
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[GenerationChunk]:
         raise ProviderConfigurationError(_MESSAGE)
         yield GenerationChunk()  # pragma: no cover - torna o método um gerador
 
     async def health(self) -> bool:
+        raise ProviderConfigurationError(_MESSAGE)
+
+    async def list_models(self, *, request_id: str | None = None) -> Sequence[ModelInfo]:
         raise ProviderConfigurationError(_MESSAGE)
 
 

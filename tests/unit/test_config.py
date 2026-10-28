@@ -17,6 +17,8 @@ def test_defaults() -> None:
     assert settings.is_production is False
     assert settings.cors_origins == ["http://localhost:5173"]
     assert settings.trusted_proxies == []
+    assert settings.ai_allowed_models == []
+    assert settings.models_cache_seconds == 10
     assert settings.uvicorn_workers == 1
 
 
@@ -24,9 +26,16 @@ def test_lists_accept_comma_separated_values() -> None:
     settings = make_settings(
         cors_origins="http://a.test, http://b.test ,",
         trusted_proxies="127.0.0.1/32,10.0.0.0/8",
+        ai_allowed_models="llama3.1, qwen3-coder:latest ,",
     )
     assert settings.cors_origins == ["http://a.test", "http://b.test"]
     assert settings.trusted_proxies == ["127.0.0.1/32", "10.0.0.0/8"]
+    assert settings.ai_allowed_models == ["llama3.1", "qwen3-coder:latest"]
+
+
+def test_models_cache_seconds_cannot_be_negative() -> None:
+    with pytest.raises(ValidationError):
+        make_settings(models_cache_seconds=-1)
 
 
 def test_log_level_is_normalized() -> None:

@@ -49,6 +49,7 @@ class ScriptedProvider:
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[GenerationChunk]:
         self.calls.append(
             {
@@ -56,6 +57,7 @@ class ScriptedProvider:
                 "max_tokens": max_tokens,
                 "max_seconds": max_seconds,
                 "request_id": request_id,
+                "model": model,
             }
         )
         try:
@@ -76,6 +78,7 @@ class ScriptedProvider:
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> GenerationResult:
         raise NotImplementedError
 
@@ -105,6 +108,7 @@ async def make_session(
         max_tokens=128,
         max_seconds=30.0,
         request_id=REQUEST_ID,
+        model="scripted-model",
         heartbeat_seconds=heartbeat_seconds,
         idle_timeout_seconds=idle_timeout_seconds,
     )

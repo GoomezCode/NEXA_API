@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.ai import AIProvider, build_provider
-from app.api import admin, auth, chat, system, usage
+from app.api import admin, auth, chat, models, system, usage
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
@@ -22,6 +22,7 @@ from app.core.middleware import (
     ContentTypeMiddleware,
     RequestContextMiddleware,
 )
+from app.core.models import ModelCatalog
 from app.core.rate_limit import SlidingWindowLimiter
 from app.core.stats import UsageStats
 from app.core.usage_store import InMemoryUsageStore
@@ -39,10 +40,11 @@ ALLOWED_HEADERS = ["Authorization", "Content-Type", "X-Request-ID"]
 ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 
 DESCRIPTION = """
-API do chat de IA via web, conforme o SRS v1.1.
+API do chat de IA via web, conforme o SRS v1.2.
 
 - Autenticação por JWT (`admin` e `guest`).
 - Chat com resposta JSON ou streaming SSE.
+- Catálogo de modelos (`/models`) e seleção de modelo por requisição.
 - Cotas em memória por convidado e por IP.
 - Administração: estatísticas, status do provedor, guests e reset de cota.
 - Erros no padrão Problem Details (`application/problem+json`).
@@ -92,6 +94,11 @@ def create_app(
     app.state.ai_model = resolved_provider.model
     app.state.ai_health = resolved_provider.health
     app.state.usage_store = usage_store
+    app.state.model_catalog = ModelCatalog(
+        resolved_provider,
+        resolved_clock,
+        ttl_seconds=resolved.models_cache_seconds,
+    )
     app.state.stats = UsageStats(
         resolved_clock,
         retention_seconds=resolved.guest_token_expire_hours * 3600,
@@ -132,6 +139,7 @@ def create_app(
     app.include_router(auth.router)
     app.include_router(usage.router)
     app.include_router(chat.router)
+    app.include_router(models.router)
     app.include_router(admin.router)
     return app
 

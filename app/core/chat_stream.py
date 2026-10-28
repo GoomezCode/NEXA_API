@@ -53,6 +53,7 @@ class StreamSession:
     max_tokens: int
     max_seconds: float
     request_id: str
+    model: str
     heartbeat_seconds: float = HEARTBEAT_INTERVAL_SECONDS
     idle_timeout_seconds: float = DEFAULT_IDLE_TIMEOUT_SECONDS
     stats: UsageStats | None = None
@@ -73,6 +74,7 @@ async def stream_events(session: StreamSession) -> AsyncIterator[str]:
         max_tokens=session.max_tokens,
         max_seconds=session.max_seconds,
         request_id=session.request_id or None,
+        model=session.model,
     )
     producer = asyncio.create_task(_pump(iterator, queue))
     started = time.perf_counter()
@@ -148,7 +150,7 @@ async def stream_events(session: StreamSession) -> AsyncIterator[str]:
             "chat_stream_completed",
             role=session.role,
             provider=session.provider.name,
-            model=session.provider.model,
+            model=session.model,
             finish_reason=finish_reason,
             duration_ms=round((time.perf_counter() - started) * 1000, 2),
             prompt_tokens=prompt_tokens,
@@ -220,7 +222,7 @@ def _log_failure(session: StreamSession, code: str, started: float) -> None:
         "chat_stream_failed",
         role=session.role,
         provider=session.provider.name,
-        model=session.provider.model,
+        model=session.model,
         code=code,
         duration_ms=round((time.perf_counter() - started) * 1000, 2),
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal, Protocol
 
 FinishReason = Literal["stop", "length", "timeout"]
@@ -26,6 +27,18 @@ class GenerationResult:
     finish_reason: FinishReason
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ModelInfo:
+    """Modelo instalado no provedor, como exibido ao cliente."""
+
+    name: str
+    size_bytes: int | None = None
+    modified_at: datetime | None = None
+    family: str | None = None
+    parameter_size: str | None = None
+    quantization_level: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +71,15 @@ class ProviderConfigurationError(ProviderError, ValueError):
     """Configuração do provedor inválida ou recurso não implementado."""
 
 
+def provider_error_code(exc: BaseException) -> str:
+    """Código Problem Details para falhas de catálogo/validação de modelo."""
+    if isinstance(exc, ProviderTimeout):
+        return "ai_provider_timeout"
+    if isinstance(exc, ProviderUnavailable):
+        return "provider_unavailable"
+    return "ai_provider_error"
+
+
 class AIProvider(Protocol):
     """Interface Strategy para provedores de IA (RNF-MAN-01/02)."""
 
@@ -71,6 +93,7 @@ class AIProvider(Protocol):
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> GenerationResult: ...
 
     def stream(
@@ -80,9 +103,12 @@ class AIProvider(Protocol):
         max_tokens: int,
         max_seconds: float,
         request_id: str | None = None,
+        model: str | None = None,
     ) -> AsyncIterator[GenerationChunk]: ...
 
     async def health(self) -> bool: ...
+
+    async def list_models(self, *, request_id: str | None = None) -> Sequence[ModelInfo]: ...
 
 
 __all__ = [
@@ -92,8 +118,10 @@ __all__ = [
     "GenerationChunk",
     "GenerationResult",
     "MessageRole",
+    "ModelInfo",
     "ProviderConfigurationError",
     "ProviderError",
     "ProviderTimeout",
     "ProviderUnavailable",
+    "provider_error_code",
 ]

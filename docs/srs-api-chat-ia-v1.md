@@ -6,7 +6,7 @@
 |---|---|
 | **Projeto** | Chat de IA via Web: Backend (API) |
 | **Documento** | SRS: Especificação de Requisitos de Software |
-| **Versão** | 1.1 (rascunho) |
+| **Versão** | 1.2 (rascunho) |
 | **Data** | 28/10/2026 |
 | **Padrões de referência** | IEEE Std 830-1998, ISO/IEC/IEEE 29148:2018 |
 | **Documento de origem** | `levantamento-chat-ia-web.md` (documento externo a este repositório) |
@@ -15,6 +15,7 @@
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.2 | 28/10/2026 | Catálogo de modelos locais (`GET /models`) e seleção opcional do modelo por requisição de chat; guest passa a escolher o modelo (RN-13 revisada), mantendo proibidos `system` e parâmetros de geração; allowlist opcional (`AI_ALLOWED_MODELS`) e cache curto do catálogo (`MODELS_CACHE_SECONDS`); novos critérios CA-24/CA-25 |
 | 1.1 | 28/10/2026 | Revisão de consistência após análise do SRS: contrato de SSE explicitado (consumo via `fetch`, não `EventSource`); limite de tokens de saída; descoberta e reset de `gid` no admin; semântica única de cota e de `usage`; schemas de `/admin/*` e `/health*`; variáveis de ambiente faltantes; separação `AI_PROVIDER`/`CLOUD_PROVIDER`; CORS com `expose_headers`; remoção da exceção de log de conteúdo; prioridades alinhadas aos critérios de aceitação |
 | 1.0 | 28/10/2026 | Primeira versão do SRS da API, **sem banco de dados**. Existe um único usuário salvo (**ADMIN**, com senha, vindo da configuração) e usuários **ghost** (anônimos) com limite de uso. A persistência fica para a próxima versão da API (seção 5.5) |
 
@@ -182,7 +183,7 @@ O frontend **nunca** se comunica diretamente com a IA. Somente a API o faz, o qu
 #### 3.1.2 Interface com provedores de IA
 
 - Toda comunicação com IA passa pela interface abstrata `AIProvider` (métodos `generate` e `stream`), cujo retorno inclui o texto, o `finish_reason` (`stop`, `length`, `timeout`) e, quando o provedor informar, a contagem de tokens.
-- **OllamaProvider:** `POST {OLLAMA_URL}/api/chat` (JSON; streaming por linhas JSON).
+- **OllamaProvider:** `POST {OLLAMA_URL}/api/chat` (JSON; streaming por linhas JSON) e `GET {OLLAMA_URL}/api/tags` para o catálogo de modelos.
 - **CloudProvider:** SDK/HTTP do provedor escolhido (`CLOUD_PROVIDER`), **não implementado nesta versão** — apenas contrato/esqueleto (§5.1).
 - Formato de mensagens padrão: `[{"role": "user" | "assistant" | "system", "content": "..."}]`.
 - Os limites `AI_MAX_OUTPUT_TOKENS`/`AI_MAX_OUTPUT_SECONDS` são aplicados pela API, independentemente do provedor (RF-CHAT-12).
@@ -197,7 +198,9 @@ Não há interface direta de hardware. O desempenho da IA local depende de CPU (
 |---|---|---|
 | `AI_PROVIDER` | Provedor ativo (`ollama` ou `cloud`) | `ollama` |
 | `OLLAMA_URL` | URL do servidor Ollama | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Modelo local | `llama3.1` |
+| `OLLAMA_MODEL` | Modelo local padrão (usado quando o chat omite `model`) | `llama3.1` |
+| `AI_ALLOWED_MODELS` | Lista separada por vírgulas de modelos que o cliente pode escolher; vazio = todos os instalados. O modelo padrão do servidor é sempre permitido | (vazio) |
+| `MODELS_CACHE_SECONDS` | TTL do cache do catálogo de modelos; `0` desativa o cache | `10` |
 | `CLOUD_API_KEY` | Chave do provedor de nuvem | (vazio até uso) |
 | `CLOUD_PROVIDER` | Fornecedor de nuvem quando `AI_PROVIDER=cloud` (`openai`, `anthropic`, `google`) | (vazio até uso) |
 | `CLOUD_BASE_URL` | (Opcional) URL base do provedor de nuvem | (vazio) |
@@ -269,6 +272,8 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | **RF-CHAT-10** | As mensagens `system` recebidas do cliente e o prompt de sistema padrão são usados apenas no contexto enviado à IA. | M |
 | **RF-CHAT-11** | Antes de chamar o provedor de IA, o endpoint deve aplicar os limites de uso do chamador (seção 3.2.3). Requisição barrada pelo limite **não** chega ao provedor. | M |
 | **RF-CHAT-12** | A geração deve ser limitada por `AI_MAX_OUTPUT_TOKENS` e `AI_MAX_OUTPUT_SECONDS`, aplicados pela API ao provedor. Ao atingir qualquer um dos limites, a resposta termina normalmente com `finish_reason` = `length` ou `timeout`, tanto em JSON quanto no evento `done` do SSE. | M |
+| **RF-CHAT-13** | A API deve expor `GET /models` (autenticado) listando os modelos instalados no provedor, com nome, tamanho, data de modificação, família, parâmetros e quantização, além do provedor ativo, do modelo padrão e da indicação `selectable`. | M |
+| **RF-CHAT-14** | O chat deve aceitar o campo opcional `model`; omitido, usa `OLLAMA_MODEL`. O nome deve existir no provedor (sem tag resolve para `:latest`) e ser permitido por `AI_ALLOWED_MODELS`; caso contrário, retorna `422` com `errors[]`, sem consumir cota. A resposta e os logs usam o nome resolvido. | M |
 
 #### 3.2.3 Limites de uso (RF-USO)
 
@@ -429,7 +434,7 @@ Sem banco de dados, o "dado" da API se resume à **configuração** e ao **estad
 | **RN-10** | Mensagem barrada por limite de uso não consome cota nem chega ao provedor de IA. Falha do provedor antes do primeiro trecho de resposta devolve a cota do `gid` e do IP (RF-USO-05); considera-se primeiro trecho o primeiro evento `data:` com conteúdo não vazio. |
 | **RN-11** | Guest não acessa nenhum endpoint `/admin/*`. |
 | **RN-12** | Os contadores de uso são voláteis: reiniciar a API (ou o Redis) zera os limites. Essa fragilidade é aceita nesta versão e deixa de existir quando os limites passarem a ser persistidos (seção 5.5). |
-| **RN-13** | O guest só pode ter o modelo e o prompt de sistema definidos pelo servidor; não escolhe modelo nem parâmetros de geração (inclusive `max_tokens`). |
+| **RN-13** | Guest e admin podem escolher o modelo instalado por requisição de chat (`model`), respeitando `AI_ALLOWED_MODELS`; o prompt de sistema continua definido pelo servidor, e parâmetros de geração (inclusive `max_tokens`) permanecem exclusivos do servidor. Modelo inexistente ou fora da allowlist retorna `422` sem consumir cota. |
 | **RN-14** | Uma requisição de chat consome 1 unidade de cota, independentemente do número de mensagens do contexto (RF-USO-11). |
 | **RN-15** | Quando as duas cotas forem restritivas, o código de erro prioriza `guest_daily_limit_reached`; se apenas a do IP estiver esgotada, `ip_daily_limit_reached` (RF-USO-12). |
 | **RN-16** | "Guest" é o termo canônico em código (`role`, `GUEST_*`); "ghost" e "visitante" são apenas sinônimos de documentação/interface. |
@@ -538,7 +543,7 @@ Este é o schema único do objeto `usage`, reutilizado em `/auth/guest`, `/usage
 
 | Método | Rota | Auth | Descrição | Requisitos |
 |---|---|---|---|---|
-| POST | `/chat` | 🔐 | Envia mensagens e recebe a resposta (JSON ou SSE) | RF-CHAT-01 a 12, RF-USO-01 a 12 |
+| POST | `/chat` | 🔐 | Envia mensagens e recebe a resposta (JSON ou SSE) | RF-CHAT-01 a 14, RF-USO-01 a 12 |
 
 **Corpo da requisição**
 
@@ -549,7 +554,8 @@ Este é o schema único do objeto `usage`, reutilizado em `/auth/guest`, `/usage
     {"role": "assistant", "content": "Olá! Como posso ajudar?"},
     {"role": "user", "content": "Explique o que é SSE."}
   ],
-  "stream": true
+  "stream": true,
+  "model": "llama3.1:latest"
 }
 ```
 
@@ -557,8 +563,9 @@ Este é o schema único do objeto `usage`, reutilizado em `/auth/guest`, `/usage
 |---|---|---|---|
 | `messages` | array | Sim | Lista completa do contexto; a última deve ser `role = user` |
 | `stream` | booleano | Não | `true` (padrão): SSE; `false`: JSON completo |
+| `model` | string | Não | Modelo instalado para esta requisição; omitido, usa `OLLAMA_MODEL`. Sem tag resolve para `:latest`; precisa ser permitido por `AI_ALLOWED_MODELS` |
 
-Campos desconhecidos são rejeitados com `422` (`extra="forbid"`). Não há `system_prompt` nem parâmetros de geração no corpo (RF-CHAT-09). Uma requisição consome 1 unidade de cota (RF-USO-11).
+Campos desconhecidos são rejeitados com `422` (`extra="forbid"`). Não há `system_prompt` nem parâmetros de geração no corpo (RF-CHAT-09). Uma requisição consome 1 unidade de cota (RF-USO-11), mas a validação do modelo ocorre **antes** do consumo: `model` inexistente ou não permitido retorna `422` sem debitar uso (RN-13, RF-CHAT-14).
 
 **Resposta com `stream = false` (`200 OK`)**
 
@@ -569,7 +576,7 @@ Campos desconhecidos são rejeitados com `422` (`extra="forbid"`). Não há `sys
     "content": "SSE é ..."
   },
   "provider": "ollama",
-  "model": "llama3.1",
+  "model": "llama3.1:latest",
   "finish_reason": "stop",
   "usage": {
     "daily_limit": 10,
@@ -581,7 +588,7 @@ Campos desconhecidos são rejeitados com `422` (`extra="forbid"`). Não há `sys
 }
 ```
 
-Para o admin, `daily_limit`, `daily_remaining` e `resets_at` são `null`. `finish_reason` ∈ {`stop`, `length`, `timeout`} (RF-CHAT-12).
+Para o admin, `daily_limit`, `daily_remaining` e `resets_at` são `null`. `finish_reason` ∈ {`stop`, `length`, `timeout`} (RF-CHAT-12). `model` é o nome realmente usado no provedor, já resolvido (RF-CHAT-14).
 
 **Resposta com `stream = true` (`200 OK`, `text/event-stream`)**
 
@@ -701,6 +708,47 @@ Cabeçalhos do `429`: `Retry-After` (segundos, para o limite por minuto ou bloqu
 
 Todas as respostas trazem `X-Request-ID` (RF-SIS-03). `/health` e `/docs` ficam fora do prefixo `/api/v1`.
 
+#### 3.7.6 Modelos
+
+| Método | Rota | Auth | Descrição | Requisitos |
+|---|---|---|---|---|
+| GET | `/models` | 🔐 | Lista os modelos instalados no provedor de IA | RF-CHAT-13, RF-CHAT-14 |
+
+**Parâmetro de query**
+
+| Nome | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `refresh` | booleano | Não | `true` ignora o cache curto (`MODELS_CACHE_SECONDS`) e consulta o provedor novamente |
+
+**Resposta (`200 OK`)**
+
+```json
+{
+  "provider": "ollama",
+  "default_model": "llama3.1:latest",
+  "models": [
+    {
+      "name": "llama3.1:latest",
+      "size_bytes": 4920739055,
+      "modified_at": "2026-10-28T14:30:00Z",
+      "family": "llama",
+      "parameter_size": "8.0B",
+      "quantization_level": "Q4_K_M",
+      "selectable": true
+    }
+  ]
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `provider` | Provedor ativo (`ollama`) |
+| `default_model` | Modelo usado quando o chat omite `model` (`OLLAMA_MODEL`) |
+| `models[]` | Modelos instalados, ordenados por nome; `selectable` indica se podem ser escolhidos no chat (respeita `AI_ALLOWED_MODELS`) |
+| `size_bytes` / `modified_at` / `family` / `parameter_size` / `quantization_level` | Metadados informados pelo provedor; `null` quando indisponíveis |
+
+Consultar o catálogo **não** consome cota. Falhas do provedor são traduzidas para `502` (`ai_provider_error`), `503` (`provider_unavailable`) ou `504` (`ai_provider_timeout`). O catálogo é cacheado por `MODELS_CACHE_SECONDS` (padrão 10 s; `0` desativa), o que evita uma chamada a `/api/tags` por mensagem de chat.
+
 ---
 
 ### 3.8 Padrão de erros
@@ -749,7 +797,7 @@ Erros ocorridos **depois** de iniciado o SSE não podem mudar o status HTTP (já
 | 429 | Limite de uso, de emissão de tokens ou de tentativas de login excedido | `rate_limited`, `guest_daily_limit_reached`, `ip_daily_limit_reached`, `guest_token_limit_reached`, `login_locked` |
 | 500 | Erro interno | `internal_error` |
 | 502 | Erro retornado pelo provedor de IA | `ai_provider_error` |
-| 503 | Prontidão indisponível (`/health/ready`) | `provider_unavailable` |
+| 503 | Provedor de IA indisponível (catálogo, validação de modelo ou prontidão) | `provider_unavailable` |
 | 504 | Timeout do provedor de IA | `ai_provider_timeout` |
 
 ---
@@ -783,6 +831,8 @@ A API será considerada aceita quando:
 | **CA-21** | A resposta é interrompida ao atingir `AI_MAX_OUTPUT_TOKENS` ou `AI_MAX_OUTPUT_SECONDS`, com `finish_reason` adequado, sem erro. |
 | **CA-22** | `401` traz `WWW-Authenticate: Bearer`; `422` segue o formato de 3.8 com `errors[]`. |
 | **CA-23** | A API recusa-se a iniciar com `UVICORN_WORKERS > 1` sem `REDIS_URL`. |
+| **CA-24** | `GET /models` lista os modelos locais (nome, tamanho, modificação, família, parâmetros e quantização), o provedor, o modelo padrão e `selectable`, para guest e admin; Ollama parado retorna `503`. |
+| **CA-25** | `POST /chat` aceita `model` instalado (nome sem tag resolve para `:latest`) e usa o modelo resolvido na resposta e no SSE; modelo inexistente ou fora de `AI_ALLOWED_MODELS` retorna `422` sem consumir cota. |
 
 ---
 

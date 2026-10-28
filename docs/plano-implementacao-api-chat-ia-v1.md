@@ -1,21 +1,22 @@
 # Plano de Implementação — API do Chat de IA
 
-## Backend Python/FastAPI conforme SRS v1.1
+## Backend Python/FastAPI conforme SRS v1.2
 
 | Campo | Valor |
 |---|---|
 | **Projeto** | Chat de IA via Web: Backend (API) |
 | **Documento** | Plano de Implementação |
-| **Versão** | 1.1 |
+| **Versão** | 1.2 |
 | **Data** | 28/10/2026 |
-| **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v1.1) |
-| **Escopo** | Implementação da API REST especificada no SRS v1.1 (sem banco de dados) |
+| **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v1.2) |
+| **Escopo** | Implementação da API REST especificada no SRS v1.2 (sem banco de dados) |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
 
 ### Histórico de revisões
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.2 | 28/10/2026 | Fase F11: catálogo `GET /models`, seleção opcional de modelo no chat, allowlist `AI_ALLOWED_MODELS`, cache `MODELS_CACHE_SECONDS` e release `v1.1.0` |
 | 1.1 | 28/10/2026 | Reordenação das fases (cotas antes do chat, para eliminar *stubs*); backlog atômico com dependências e caminho crítico; versões mínimas e alternativas de stack; cronograma datado com marcos e buffer; ajuste dos gates de CA e da matriz de testes |
 | 1.0 | 28/10/2026 | Primeira versão do plano, derivada do SRS v1.1 |
 
@@ -199,6 +200,7 @@ NEXA_API/
 │   │   ├── deps.py              # dependências: settings, usuário, store, provider
 │   │   ├── auth.py              # POST /auth/login, POST /auth/guest
 │   │   ├── chat.py              # POST /chat (JSON + SSE)
+│   │   ├── models.py            # GET /models (catálogo do provedor)
 │   │   ├── usage.py             # GET /usage
 │   │   ├── admin.py             # GET /admin/stats, /admin/ai/status, /admin/guests;
 │   │   │                        # POST /admin/usage/reset
@@ -210,6 +212,7 @@ NEXA_API/
 │   │   ├── rate_limit.py        # janela fixa (dia) + deslizante (minuto)
 │   │   ├── usage_store.py       # UsageStore (Protocol) + InMemoryUsageStore
 │   │   ├── stats.py             # contadores monotônicos + HLL/lista limitada
+│   │   ├── models.py            # catálogo de modelos com cache TTL + allowlist
 │   │   ├── errors.py            # exceções + handlers + códigos
 │   │   ├── logging.py           # JSON, mascaramento de segredos
 │   │   ├── middleware.py        # request_id, body limit, headers
@@ -227,6 +230,7 @@ NEXA_API/
 │       ├── common.py            # ErrorEnvelope, ErrorItem, UsageInfo
 │       ├── auth.py              # LoginRequest, TokenResponse, GuestTokenResponse
 │       ├── chat.py              # Message, ChatRequest, ChatResponse
+│       ├── models.py            # ModelEntry, ModelsResponse
 │       ├── admin.py             # StatsResponse, AIStatusResponse, GuestListResponse,
 │       │                        # UsageResetRequest
 │       └── system.py            # HealthResponse, ReadyResponse
@@ -310,12 +314,13 @@ class Clock(Protocol):
 1. autenticar (JWT)            → 401 com WWW-Authenticate
 2. validar schema (Pydantic)   → 422 com errors[]
 3. aplicar limites de contexto → 422
-4. usage.consume(gid, ip)      → 429 (guest_daily_limit_reached | ip_daily_limit_reached | rate_limited)
-5. montar contexto             → DEFAULT_SYSTEM_PROMPT + mensagens validadas
-6. provider.stream/generate    → 502/504 (antes do 1º trecho) | evento error (depois)
-7. responder                   → JSON ou SSE (+ done) com usage e finish_reason
-8. métricas/logs               → metadados apenas
-9. falha antes do 1º trecho    → usage.refund(gid) + usage.refund(ip)
+4. resolver/validar `model`    → 422 (inexistente/fora da allowlist) | 502/503/504 (provedor), sem consumir cota
+5. usage.consume(gid, ip)      → 429 (guest_daily_limit_reached | ip_daily_limit_reached | rate_limited)
+6. montar contexto             → DEFAULT_SYSTEM_PROMPT + mensagens validadas
+7. provider.stream/generate    → 502/503/504 (antes do 1º trecho) | evento error (depois)
+8. responder                   → JSON ou SSE (+ done) com usage, model e finish_reason
+9. métricas/logs               → metadados apenas
+10. falha antes do 1º trecho   → usage.refund(gid) + usage.refund(ip)
 ```
 
 ### 4.6 Middlewares e ordem
@@ -338,8 +343,9 @@ class Clock(Protocol):
 | `TokenResponse` | `access_token`, `token_type`, `expires_in`, `role` | `token_type="bearer"` |
 | `GuestTokenResponse` | `TokenResponse` + `usage` | `role="guest"` |
 | `Message` | `role` ∈ {system,user,assistant}, `content` | `content` não vazio após `strip` |
-| `ChatRequest` | `messages` (1..N), `stream` (default `true`) | última = `user`; sem campos extras |
-| `ChatResponse` | `message`, `provider`, `model`, `finish_reason`, `usage` | `finish_reason` ∈ {stop,length,timeout} |
+| `ChatRequest` | `messages` (1..N), `stream` (default `true`), `model` (opcional) | última = `user`; sem campos extras; `model` resolvido para `:latest` |
+| `ChatResponse` | `message`, `provider`, `model`, `finish_reason`, `usage` | `finish_reason` ∈ {stop,length,timeout}; `model` é o resolvido |
+| `ModelEntry` / `ModelsResponse` | `name`, metadados, `selectable`; `provider`, `default_model`, `models[]` | `selectable` respeita `AI_ALLOWED_MODELS` |
 | `UsageInfo` | 5 campos de RD-08 | admin: `daily_*` e `resets_at` nulos |
 | `ErrorEnvelope` | `type`, `title`, `status`, `code`, `detail`, `request_id`, `errors?`, `resets_at?` | RFC 9457 estendida |
 | `StatsResponse` | `since`, `chat_requests_total`, `guest_distinct`, `rate_limited_total`, `provider_errors_total`, `avg_response_seconds` | |
@@ -425,6 +431,11 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 | F10-03 | OpenAPI + teste de snapshot | S | F10-01 | `tests/integration/test_openapi.py` |
 | F10-04 | Rodada manual com Ollama real | S | F10-02 | relatório |
 | F10-05 | Tag de release `v1.0.0` | S | F10-04 | git |
+| F11-01 | `ModelInfo` + `list_models()` no contrato e no Ollama (`/api/tags`) | M | F2-05 | `ai/base.py`, `ai/ollama.py` |
+| F11-02 | `ModelCatalog` com cache TTL, resolução `:latest` e allowlist | M | F11-01 | `core/models.py` |
+| F11-03 | `GET /api/v1/models` + schemas e OpenAPI | S | F11-02 | `api/models.py`, `schemas/models.py` |
+| F11-04 | Seleção de `model` no chat antes do consumo de cota (JSON e SSE) | M | F11-02 | `api/chat.py`, `core/chat_stream.py` |
+| F11-05 | Testes, docs e tag `v1.1.0` | M | F11-04 | `tests/`, `docs/`, git |
 
 **Caminho crítico:** `F0-01 → F0-02 → F0-04 → F0-05 → F0-06 → F1-01 → F1-02 → F1-03 → F1-06 → F2-01 → F2-02 → F2-04 → F3-01 → F3-03 → F4-01 → F4-02 → F5-01 → F5-02 → F5-05 → F9-03 → F10-01`.
 
@@ -670,6 +681,33 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 ---
 
+### Fase 11 — Catálogo de modelos (1 dia)
+
+**Tarefas**
+
+- [x] `ModelInfo` + `list_models()` no contrato `AIProvider`, no `OllamaProvider`
+  (`GET /api/tags`) e no provedor fake.
+- [x] `ModelCatalog` com cache TTL (`MODELS_CACHE_SECONDS`), `?refresh=true` e
+  resolução de nomes sem tag para `:latest`.
+- [x] `AI_ALLOWED_MODELS` opcional: lista separada por vírgulas; vazio libera
+  todos; o modelo padrão do servidor é sempre permitido.
+- [x] `GET /api/v1/models` (guest e admin) com provedor, modelo padrão,
+  metadados e `selectable`.
+- [x] `ChatRequest.model` opcional; validação **antes** do consumo de cota;
+  modelo resolvido usado no provedor, na resposta e nos logs (JSON e SSE).
+- [x] Testes de catálogo, provider, rota e seleção no chat; SRS v1.2, README,
+  `.env.example`, matriz CA e checklist atualizados.
+- [x] Tag de release `v1.1.0` (API permanece `1.1.0`).
+
+**Gate:** CA-01..CA-25 verdes; Ruff, mypy e cobertura ≥ 80% sem falhas;
+`/models` e seleção por requisição validados com o provedor fake e Ollama real.
+
+> **Concluída em 28/10/2026:** catálogo de modelos com cache curto e allowlist,
+> seleção por requisição com validação pré-cota e release `v1.1.0`; 479 testes e
+> cobertura de 99,29% em `app/`.
+
+---
+
 ## 7. Estratégia de testes
 
 ### 7.1 Pirâmide
@@ -764,7 +802,7 @@ Regras:
 | Vazamento de conteúdo em logs | LGPD/segurança | Redaction + teste dedicado + revisão de PR | 7/8 |
 | Complexidade do streaming (cancelamento/refund) | Cota inconsistente | Máquina de estados explícita + testes de falha | 5 |
 | Dependência de hardware para aceitação | Atraso na entrega | Aceitação com fake provider + rodada manual separada | 10 |
-| Estimativas otimistas / escopo crescendo | Atraso no release | Buffer de 15%, gates por fase e backlog atômico (F0-01…F10-05) | 0 |
+| Estimativas otimistas / escopo crescendo | Atraso no release | Buffer de 15%, gates por fase e backlog atômico (F0-01…F11-05) | 0 |
 
 ---
 
@@ -774,7 +812,7 @@ Regras:
 
 - 1 desenvolvedor sênior, 8 h/dia, com revisão de PR no mesmo dia.
 - Início em **29/10/2026** (quinta-feira); fins de semana e feriados nacionais não contabilizados.
-- Escopo congelado no SRS v1.1; mudanças entram como nova fase, não como “ajuste”.
+- Escopo congelado no SRS v1.2; mudanças entram como nova fase, não como “ajuste”.
 
 ### 11.2 Cronograma de 1 desenvolvedor (23 dias úteis)
 
@@ -791,6 +829,7 @@ Regras:
 | F8 — Observabilidade | 1 | 24/11 | 24/11 | Logs e métricas completos |
 | F9 — Empacotamento | 2 | 25/11 | 26/11 | Imagem + compose + shutdown |
 | F10 — Conformidade | 2 | 27/11 | 30/11 | **M6**: CA-01..CA-23 verdes, `v1.0.0` |
+| F11 — Catálogo de modelos | 1 | 01/12 | 01/12 | **M7**: CA-24/CA-25 verdes, `v1.1.0` |
 
 **Buffer:** 3 dias úteis (≈ 14%) → release de risco em **03/12/2026**.
 
@@ -822,12 +861,12 @@ Regras:
 
 ### 12.2 DoD por release
 
-- [ ] CA-01 a CA-23 verificados e rastreados.
+- [ ] CA-01 a CA-25 verificados e rastreados.
 - [ ] Cobertura ≥ 80%.
 - [ ] Imagem Docker publicada e healthcheck ok.
 - [ ] `README` e `.env.example` completos.
 - [ ] Rodada manual com Ollama real registrada.
-- [ ] Tag `v1.0.0`.
+- [ ] Tag `v1.1.0`.
 
 ### 12.3 Checklist de aceitação (SRS §4)
 
@@ -854,6 +893,8 @@ Regras:
 - [ ] CA-21 limites de saída com `finish_reason`
 - [ ] CA-22 401 com `WWW-Authenticate`; 422 com `errors[]`
 - [ ] CA-23 recusa múltiplos workers sem Redis
+- [ ] CA-24 catálogo `/models` com metadados e `selectable`
+- [ ] CA-25 seleção de modelo por requisição, validação sem cota
 
 ---
 
@@ -864,7 +905,7 @@ Regras:
 | Requisito | Módulo | Teste |
 |---|---|---|
 | RF-AUT-01..10 | `core/auth.py`, `core/security.py`, `api/auth.py`, `api/deps.py` | `tests/integration/test_auth.py`, `tests/unit/test_security.py` |
-| RF-CHAT-01..12 | `api/chat.py`, `ai/*`, `core/sse.py`, `core/chat_stream.py`, `schemas/chat.py` | `tests/integration/test_chat.py`, `tests/unit/test_chat_stream.py`, `tests/unit/test_ollama.py`, `tests/unit/test_sse.py` |
+| RF-CHAT-01..14 | `api/chat.py`, `api/models.py`, `ai/*`, `core/models.py`, `core/sse.py`, `core/chat_stream.py`, `schemas/chat.py`, `schemas/models.py` | `tests/integration/test_chat.py`, `tests/integration/test_models.py`, `tests/unit/test_chat_stream.py`, `tests/unit/test_model_catalog.py`, `tests/unit/test_ollama.py`, `tests/unit/test_sse.py` |
 | RF-USO-01..12 | `core/usage_store.py`, `core/rate_limit.py`, `core/usage.py` | `tests/unit/test_usage_store.py`, `tests/unit/test_rate_limit.py`, `tests/unit/test_usage.py`, `tests/integration/test_usage_api.py` |
 | RF-ADM-01..05 | `api/admin.py`, `core/stats.py` | `tests/integration/test_admin.py`, `tests/unit/test_stats.py` |
 | RF-SIS-01..04 | `api/system.py`, `core/middleware.py`, `core/errors.py` | `tests/integration/test_system.py`, `tests/unit/test_errors.py`, `tests/unit/test_middleware.py` |

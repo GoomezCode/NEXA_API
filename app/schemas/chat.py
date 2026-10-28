@@ -35,12 +35,32 @@ class ChatRequest(BaseModel):
             "example": {
                 "messages": [{"role": "user", "content": "Explique SSE em uma frase."}],
                 "stream": False,
+                "model": "llama3.1:latest",
             }
         },
     )
 
     messages: list[ChatMessageInput] = Field(min_length=1)
     stream: bool = True
+    model: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=256,
+        description=(
+            "Modelo instalado no Ollama para esta requisição. Omitido, usa o "
+            "modelo padrão do servidor (`OLLAMA_MODEL`)."
+        ),
+    )
+
+    @field_validator("model")
+    @classmethod
+    def _model_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("não pode ser vazio")
+        return value
 
     @field_validator("messages")
     @classmethod

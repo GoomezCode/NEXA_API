@@ -1,6 +1,6 @@
-# Matriz CA → teste — Nexa API v1.0.0
+# Matriz CA → teste — Nexa API v1.1.0
 
-Rastreabilidade dos critérios de aceitação (SRS v1.1, §4) para os testes
+Rastreabilidade dos critérios de aceitação (SRS v1.2, §4) para os testes
 automatizados. Execute a matriz completa com:
 
 ```bash
@@ -32,6 +32,8 @@ automatizados. Execute a matriz completa com:
 | CA-21 | Geração interrompida em `AI_MAX_OUTPUT_TOKENS`/`AI_MAX_OUTPUT_SECONDS` com `finish_reason` | `tests/integration/test_chat.py::test_finish_reason_is_returned`; `tests/unit/test_chat_stream.py::test_finish_reason_length_and_timeout_are_forwarded`; `tests/unit/test_ollama.py::test_generate_total_deadline_finishes_with_timeout_reason`, `test_stream_total_deadline_ends_with_timeout_reason` | ✅ |
 | CA-22 | `401` com `WWW-Authenticate: Bearer`; `422` com `errors[]` | `tests/unit/test_errors.py::test_api_error_handler_adds_bearer_challenge`, `test_validation_error_handler_maps_fields`; `tests/integration/test_system.py::test_validation_error_format`; `tests/integration/test_chat.py::test_invalid_payload_returns_422_with_errors` | ✅ |
 | CA-23 | Recusa iniciar com `UVICORN_WORKERS > 1` sem `REDIS_URL` | `tests/unit/test_config.py::test_multiple_workers_require_redis`, `test_multiple_workers_with_redis_are_allowed` | ✅ |
+| CA-24 | `GET /models` lista modelos com metadados e `selectable`; provider/default; `503` sem Ollama | `tests/integration/test_models.py` (11 testes); `tests/unit/test_ollama.py::test_list_models_parses_tags_and_sorts_by_name`, `test_list_models_maps_connect_error`; `tests/unit/test_model_catalog.py` | ✅ |
+| CA-25 | Chat aceita `model` instalado (sem tag → `:latest`), usa o resolvido; inválido/fora da allowlist → `422` sem cota | `tests/integration/test_chat.py::test_guest_selects_model_per_request`, `test_selected_model_is_used_in_stream`, `test_unknown_model_returns_422_without_consuming_quota`, `test_model_outside_allowlist_returns_422_without_consuming_quota`, `test_catalog_failure_during_validation_does_not_consume_quota`; `tests/unit/test_model_catalog.py` | ✅ |
 
 ## Lacunas fechadas nesta fase
 
@@ -42,6 +44,13 @@ automatizados. Execute a matriz completa com:
   `LOG_LEVEL=DEBUG`.
 - **CA-14**: acrescentado teste garantindo que `/health` e `/usage` continuam
   funcionando após falha do provedor.
+
+## Lacunas fechadas na fase F11
+
+- **CA-24/CA-25**: catálogo de modelos com cache TTL, allowlist e seleção por
+  requisição; validação do modelo acontece antes do consumo de cota, coberta por
+  `tests/unit/test_model_catalog.py`, `tests/integration/test_models.py` e casos
+  novos em `tests/integration/test_chat.py`.
 
 ## Evidências fora do pytest
 

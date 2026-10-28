@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from app.ai.base import ProviderError, ProviderTimeout
+from app.ai.base import ProviderError, ProviderTimeout, ProviderUnavailable
 from app.ai.fake import FakeProvider
 from app.config import Settings
 from app.main import create_app
@@ -51,12 +51,12 @@ def _chat(
     messages: list[dict[str, str]] | None = None,
     *,
     stream: bool = False,
+    model: str | None = None,
 ) -> object:
-    return client.post(
-        "/api/v1/chat",
-        headers=_auth(token),
-        json={"messages": messages or DEFAULT_MESSAGES, "stream": stream},
-    )
+    body: dict[str, object] = {"messages": messages or DEFAULT_MESSAGES, "stream": stream}
+    if model is not None:
+        body["model"] = model
+    return client.post("/api/v1/chat", headers=_auth(token), json=body)
 
 
 def test_guest_json_chat_success(client: TestClient, provider: FakeProvider) -> None:
@@ -250,6 +250,11 @@ def test_admin_context_limits_are_enforced(clock: FakeClock) -> None:
             "messages": [{"role": "user", "content": "oi"}],
             "stream": False,
             "max_tokens": 10,
+        },
+        {
+            "messages": [{"role": "user", "content": "oi"}],
+            "stream": False,
+            "model": "   ",
         },
     ],
 )
@@ -696,3 +701,116 @@ def test_validation_error_outside_chat_has_no_quota_headers(client: TestClient) 
 
     assert response.status_code == 422
     assert "x-ratelimit-limit" not in response.headers
+
+
+def test_chat_uses_default_model_when_omitted(client: TestClient, provider: FakeProvider) -> None:
+    token = _guest_token(client)
+
+    response = _chat(client, token)
+
+    assert response.status_code == 200
+    assert response.json()["model"] == "fake-model"
+    assert provider.calls[0].model == "fake-model"
+
+
+@pytest.mark.parametrize(
+    ("requested", "resolved"),
+    [
+        ("fake-small", "fake-small:latest"),
+        ("fake-small:latest", "fake-small:latest"),
+        ("fake-model", "fake-model:latest"),
+    ],
+)
+def test_guest_selects_model_per_request(
+    client: TestClient,
+    provider: FakeProvider,
+    requested: str,
+    resolved: str,
+) -> None:
+    token = _guest_token(client)
+
+    response = _chat(client, token, model=requested)
+
+    assert response.status_code == 200
+    assert response.json()["model"] == resolved
+    assert provider.calls[0].model == resolved
+
+
+def test_selected_model_is_used_in_stream(client: TestClient, provider: FakeProvider) -> None:
+    token = _guest_token(client)
+
+    response = _chat(client, token, stream=True, model="fake-small")
+
+    assert response.status_code == 200
+    events = parse_sse(response.text)
+    assert events[-1].event == "done"
+    assert provider.calls[0].streamed is True
+    assert provider.calls[0].model == "fake-small:latest"
+
+
+def test_unknown_model_returns_422_without_consuming_quota(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    token = _guest_token(client)
+
+    response = _chat(client, token, model="nao-instalado")
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert body["errors"][0]["field"] == "model"
+    assert response.headers["x-ratelimit-remaining"] == "10"
+
+    usage = client.get("/api/v1/usage", headers=_auth(token)).json()
+    assert usage["daily_remaining"] == 10
+    assert provider.calls == []
+
+
+def test_model_outside_allowlist_returns_422_without_consuming_quota(
+    clock: FakeClock,
+) -> None:
+    settings = make_settings(ai_allowed_models=["fake-model"])
+    with client_for(settings, clock) as (client, provider):
+        token = _guest_token(client)
+
+        denied = _chat(client, token, model="fake-small")
+
+        assert denied.status_code == 422
+        assert denied.json()["errors"][0]["field"] == "model"
+        usage = client.get("/api/v1/usage", headers=_auth(token)).json()
+        assert usage["daily_remaining"] == 10
+        assert provider.calls == []
+
+        # O modelo padrão continua permitido mesmo fora da allowlist.
+        allowed = _chat(client, token)
+        assert allowed.status_code == 200
+        assert allowed.json()["model"] == "fake-model"
+
+
+@pytest.mark.parametrize(
+    ("error", "status_code", "code"),
+    [
+        (ProviderUnavailable("fora do ar"), 503, "provider_unavailable"),
+        (ProviderTimeout("lento"), 504, "ai_provider_timeout"),
+        (ProviderError("falhou"), 502, "ai_provider_error"),
+    ],
+)
+def test_catalog_failure_during_validation_does_not_consume_quota(
+    client: TestClient,
+    provider: FakeProvider,
+    error: BaseException,
+    status_code: int,
+    code: str,
+) -> None:
+    token = _guest_token(client)
+    provider.models_error = error
+
+    response = _chat(client, token, model="fake-small")
+
+    assert response.status_code == status_code
+    assert response.json()["code"] == code
+    assert response.headers["x-ratelimit-remaining"] == "10"
+
+    usage = client.get("/api/v1/usage", headers=_auth(token)).json()
+    assert usage["daily_remaining"] == 10
+    assert provider.calls == []

@@ -2,10 +2,10 @@
 
 Backend do chat de IA via web, em **Python/FastAPI**, sem banco de dados.
 
-- **SRS:** [`docs/srs-api-chat-ia-v1.md`](docs/srs-api-chat-ia-v1.md) (v1.1)
-- **Plano de implementação:** [`docs/plano-implementacao-api-chat-ia-v1.md`](docs/plano-implementacao-api-chat-ia-v1.md) (v1.1)
+- **SRS:** [`docs/srs-api-chat-ia-v1.md`](docs/srs-api-chat-ia-v1.md) (v1.2)
+- **Plano de implementação:** [`docs/plano-implementacao-api-chat-ia-v1.md`](docs/plano-implementacao-api-chat-ia-v1.md) (v1.2)
 - **Matriz CA → teste:** [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md)
-- **Checklist de release:** [`docs/checklist-release.md`](docs/checklist-release.md) (v1.0.0)
+- **Checklist de release:** [`docs/checklist-release.md`](docs/checklist-release.md) (v1.1.0)
 
 ## Requisitos
 
@@ -65,6 +65,8 @@ lista o conjunto completo com os valores padrão.
 | `AI_STREAM_IDLE_TIMEOUT_SECONDS` | `60` | Timeout de inatividade durante o streaming. |
 | `AI_MAX_OUTPUT_TOKENS` | `1024` | Teto de tokens de saída. |
 | `AI_MAX_OUTPUT_SECONDS` | `300` | Teto de duração da geração (`finish_reason=timeout`). |
+| `AI_ALLOWED_MODELS` | vazio | Modelos que o cliente pode escolher (lista separada por vírgulas); vazio = todos os instalados. O modelo padrão é sempre permitido. |
+| `MODELS_CACHE_SECONDS` | `10` | TTL do cache do catálogo de modelos; `0` desativa. |
 | `REDIS_URL` | vazio | Obrigatório apenas com mais de um worker. |
 
 ## Execução
@@ -92,6 +94,7 @@ Endpoints disponíveis na fase atual:
 | POST | `/api/v1/auth/guest` | Emite token de convidado (`gid` + `usage` inicial) |
 | GET | `/api/v1/usage` | Limites e uso restante do chamador |
 | POST | `/api/v1/chat` | Envia o contexto e recebe a resposta do modelo (JSON ou SSE) |
+| GET | `/api/v1/models` | Lista os modelos instalados no Ollama e o modelo padrão |
 | GET | `/api/v1/admin/stats` | Estatísticas de uso em memória (somente admin) |
 | GET | `/api/v1/admin/ai/status` | Status do provedor de IA (somente admin) |
 | GET | `/api/v1/admin/guests` | Guests ativos e uso por IP (somente admin) |
@@ -168,6 +171,26 @@ curl -sS -X POST http://localhost:8000/api/v1/chat \
   -d '{"messages":[{"role":"user","content":"Explique SSE em uma frase."}],"stream":false}'
 ```
 
+Catálogo de modelos e escolha por requisição:
+
+```bash
+curl -sS http://localhost:8000/api/v1/models \
+  -H "Authorization: Bearer $TOKEN"
+
+# `refresh=true` ignora o cache curto do catálogo.
+curl -sS 'http://localhost:8000/api/v1/models?refresh=true' \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -sS -X POST http://localhost:8000/api/v1/chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Olá!"}],"stream":false,"model":"llama3.1"}'
+```
+
+Sem `model`, usa-se `OLLAMA_MODEL`. Nome sem tag resolve para `:latest`; o
+modelo precisa estar instalado e, se `AI_ALLOWED_MODELS` estiver definido, na
+allowlist. Escolha inválida retorna `422` sem consumir cota.
+
 Chat em streaming (`curl -N` desativa o buffer):
 
 ```bash
@@ -235,14 +258,16 @@ tests/
 A implementação segue o plano: **F0 Fundação**, **F1 Autenticação**,
 **F2 Provedores de IA**, **F3 Cotas e limites**, **F4 Chat JSON**,
 **F5 Streaming SSE**, **F6 Administração**, **F7 Hardening**,
-**F8 Observabilidade**, **F9 Empacotamento** e **F10 Conformidade**
-(concluídas).
+**F8 Observabilidade**, **F9 Empacotamento**, **F10 Conformidade** e
+**F11 Catálogo de modelos** (concluídas).
 
 ## Release
 
-A entrega `v1.0.0` (API reporta `1.1.0`, acompanhando o SRS v1.1) tem os
-critérios CA-01..CA-23 rastreados em [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md)
+A entrega `v1.1.0` (API reporta `1.1.0`) acrescenta o catálogo `GET /models` e a
+escolha de modelo por requisição de chat (SRS v1.2), com os critérios
+CA-01..CA-25 rastreados em [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md)
 e a rodada manual com Ollama real em
 [`docs/aceitacao-manual-2026-10-28.md`](docs/aceitacao-manual-2026-10-28.md).
 Pendências e limitações conhecidas estão em
-[`docs/checklist-release.md`](docs/checklist-release.md).
+[`docs/checklist-release.md`](docs/checklist-release.md). A entrega `v1.0.0`
+permanece como marco anterior (SRS v1.1).

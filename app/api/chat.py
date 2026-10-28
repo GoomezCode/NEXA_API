@@ -13,6 +13,7 @@ from app.ai.base import (
     AIProvider,
     ChatMessage,
     ProviderError,
+    provider_error_code,
 )
 from app.api.deps import CurrentUser, get_current_user
 from app.config import Settings
@@ -20,12 +21,14 @@ from app.core.chat import context_errors
 from app.core.chat_stream import StreamSession, error_code, stream_events
 from app.core.errors import (
     ApiError,
+    ValidationErrorItem,
     request_id_of,
     unhandled_exception_handler,
     validation_error_handler,
 )
 from app.core.ip import get_client_ip
 from app.core.logging import get_logger
+from app.core.models import ModelCatalog, is_model_selectable
 from app.core.sse import SSE_HEADERS
 from app.core.stats import UsageStats
 from app.core.usage import rate_limit_headers
@@ -98,6 +101,62 @@ def _provider_error(exc: ProviderError) -> ApiError:
     return ApiError(error_code(exc))
 
 
+async def _resolve_model(
+    payload: ChatRequest,
+    request: Request,
+    *,
+    user: CurrentUser,
+    store: UsageStore,
+    ip: str,
+) -> str:
+    """Modelo efetivo: o escolhido (validado) ou o padrão do servidor."""
+    provider = cast(AIProvider, request.app.state.ai_provider)
+    if payload.model is None:
+        return provider.model
+
+    settings = cast(Settings, request.app.state.settings)
+    catalog = cast(ModelCatalog, request.app.state.model_catalog)
+    headers = await _quota_headers(store, user=user, ip=ip)
+
+    try:
+        resolved = await catalog.resolve(
+            payload.model,
+            request_id=request_id_of(request),
+        )
+    except ProviderError as exc:
+        # Consultar o catálogo não consome cota; o erro real é de disponibilidade.
+        raise ApiError(provider_error_code(exc), headers=headers) from exc
+
+    if resolved is None:
+        raise ApiError(
+            "validation_error",
+            errors=[
+                ValidationErrorItem(
+                    field="model",
+                    reason="modelo não instalado no Ollama",
+                )
+            ],
+            headers=headers,
+        )
+
+    if not is_model_selectable(
+        resolved,
+        allowed=settings.ai_allowed_models,
+        default_model=provider.model,
+    ):
+        raise ApiError(
+            "validation_error",
+            errors=[
+                ValidationErrorItem(
+                    field="model",
+                    reason="modelo não permitido pelo servidor",
+                )
+            ],
+            headers=headers,
+        )
+    return resolved
+
+
 @router.post(
     "/chat",
     response_model=ChatResponse,
@@ -154,6 +213,9 @@ async def chat(
         headers = await _quota_headers(store, user=user, ip=ip)
         raise ApiError("validation_error", errors=errors, headers=headers)
 
+    # Validar o modelo antes de consumir cota: escolha inválida não debita uso.
+    selected_model = await _resolve_model(payload, request, user=user, store=store, ip=ip)
+
     decision = await store.consume(role=user.role, subject=user.subject, ip=ip)
     if not decision.allowed:
         stats.record_rate_limited()
@@ -184,6 +246,7 @@ async def chat(
             request_id=request_id_of(request),
             idle_timeout_seconds=settings.ai_stream_idle_timeout_seconds,
             stats=stats,
+            model=selected_model,
         )
         return StreamingResponse(
             stream_events(session),
@@ -198,6 +261,7 @@ async def chat(
             max_tokens=settings.ai_max_output_tokens,
             max_seconds=settings.ai_max_output_seconds,
             request_id=request_id_of(request),
+            model=selected_model,
         )
     except Exception as exc:
         # RF-USO-05/CA-13: nada foi entregue ao cliente, devolve a cota.
@@ -212,7 +276,7 @@ async def chat(
                 "chat_provider_failed",
                 role=user.role,
                 provider=provider.name,
-                model=provider.model,
+                model=selected_model,
                 code=api_error.code,
                 duration_ms=round((time.perf_counter() - started) * 1000, 2),
             )
@@ -225,7 +289,7 @@ async def chat(
         "chat_completed",
         role=user.role,
         provider=provider.name,
-        model=provider.model,
+        model=selected_model,
         finish_reason=result.finish_reason,
         duration_ms=duration_ms,
         prompt_tokens=result.prompt_tokens,
@@ -238,7 +302,7 @@ async def chat(
     return ChatResponse(
         message=AssistantMessage(content=result.content),
         provider=provider.name,
-        model=provider.model,
+        model=selected_model,
         finish_reason=result.finish_reason,
         usage=usage,
     )

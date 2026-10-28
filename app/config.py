@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     ai_stream_idle_timeout_seconds: float = Field(default=60.0, gt=0)
     ai_max_output_tokens: int = Field(default=1024, gt=0)
     ai_max_output_seconds: float = Field(default=300.0, gt=0)
+    ai_allowed_models: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    models_cache_seconds: float = Field(default=10.0, ge=0)
 
     # --- Redis (opcional) ---------------------------------------------------
     redis_url: str | None = None
@@ -129,7 +131,7 @@ class Settings(BaseSettings):
             raise ValueError("LOG_LEVEL inválido")
         return value
 
-    @field_validator("trusted_proxies", "cors_origins", mode="before")
+    @field_validator("trusted_proxies", "cors_origins", "ai_allowed_models", mode="before")
     @classmethod
     def _split_comma_separated(cls, value: Any) -> Any:
         if isinstance(value, str):

@@ -97,6 +97,7 @@
               "role": "user"
             }
           ],
+          "model": "llama3.1:latest",
           "stream": false
         },
         "properties": {
@@ -107,6 +108,20 @@
             "minItems": 1,
             "title": "Messages",
             "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Modelo instalado no Ollama para esta requisição. Omitido, usa o modelo padrão do servidor (`OLLAMA_MODEL`).",
+            "title": "Model"
           },
           "stream": {
             "default": true,
@@ -407,6 +422,134 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "ModelEntry": {
+        "additionalProperties": false,
+        "description": "Modelo instalado no provedor de IA.",
+        "properties": {
+          "family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Família do modelo.",
+            "title": "Family"
+          },
+          "modified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Última modificação, em UTC.",
+            "title": "Modified At"
+          },
+          "name": {
+            "description": "Nome completo, incluindo a tag (ex.: `llama3.1:latest`).",
+            "title": "Name",
+            "type": "string"
+          },
+          "parameter_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quantidade de parâmetros (ex.: `8.0B`).",
+            "title": "Parameter Size"
+          },
+          "quantization_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quantização (ex.: `Q4_K_M`).",
+            "title": "Quantization Level"
+          },
+          "selectable": {
+            "description": "Se pode ser escolhido em `POST /chat` (respeita `AI_ALLOWED_MODELS`).",
+            "title": "Selectable",
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tamanho em bytes.",
+            "title": "Size Bytes"
+          }
+        },
+        "required": [
+          "name",
+          "selectable"
+        ],
+        "title": "ModelEntry",
+        "type": "object"
+      },
+      "ModelsResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /api/v1/models`.",
+        "example": {
+          "default_model": "llama3.1:latest",
+          "models": [
+            {
+              "family": "llama",
+              "modified_at": "2026-10-28T14:30:00Z",
+              "name": "llama3.1:latest",
+              "parameter_size": "8.0B",
+              "quantization_level": "Q4_K_M",
+              "selectable": true,
+              "size_bytes": 4920739055
+            }
+          ],
+          "provider": "ollama"
+        },
+        "properties": {
+          "default_model": {
+            "description": "Modelo usado quando `model` é omitido no chat.",
+            "title": "Default Model",
+            "type": "string"
+          },
+          "models": {
+            "description": "Modelos instalados, ordenados por nome.",
+            "items": {
+              "$ref": "#/components/schemas/ModelEntry"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "provider": {
+            "description": "Provedor ativo.",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "default_model",
+          "models"
+        ],
+        "title": "ModelsResponse",
         "type": "object"
       },
       "ReadinessResponse": {
@@ -765,7 +908,7 @@
     }
   },
   "info": {
-    "description": "\nAPI do chat de IA via web, conforme o SRS v1.1.\n\n- Autenticação por JWT (`admin` e `guest`).\n- Chat com resposta JSON ou streaming SSE.\n- Cotas em memória por convidado e por IP.\n- Administração: estatísticas, status do provedor, guests e reset de cota.\n- Erros no padrão Problem Details (`application/problem+json`).\n",
+    "description": "\nAPI do chat de IA via web, conforme o SRS v1.2.\n\n- Autenticação por JWT (`admin` e `guest`).\n- Chat com resposta JSON ou streaming SSE.\n- Catálogo de modelos (`/models`) e seleção de modelo por requisição.\n- Cotas em memória por convidado e por IP.\n- Administração: estatísticas, status do provedor, guests e reset de cota.\n- Erros no padrão Problem Details (`application/problem+json`).\n",
     "title": "Nexa API",
     "version": "1.1.0"
   },
@@ -1047,6 +1190,69 @@
         "summary": "Envia mensagens ao provedor de IA",
         "tags": [
           "Chat"
+        ]
+      }
+    },
+    "/api/v1/models": {
+      "get": {
+        "description": "Consulta o provedor de IA (Ollama) e devolve os modelos locais instalados, com nome, tamanho, data de modificação, família, parâmetros e quantização. `default_model` é o modelo usado quando o chat omite `model`; `selectable` indica se o modelo pode ser escolhido no chat (respeita `AI_ALLOWED_MODELS`).",
+        "operationId": "list_models_api_v1_models_get",
+        "parameters": [
+          {
+            "description": "Ignora o cache curto e consulta o provedor novamente.",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ignora o cache curto e consulta o provedor novamente.",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          },
+          "503": {
+            "description": "Provedor de IA indisponível."
+          },
+          "504": {
+            "description": "Provedor de IA não respondeu a tempo."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista os modelos instalados",
+        "tags": [
+          "Modelos"
         ]
       }
     },
