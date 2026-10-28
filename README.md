@@ -32,7 +32,8 @@ não pode ser um valor de exemplo. `UVICORN_WORKERS > 1` exige `REDIS_URL`.
 ### Variáveis principais
 
 Todas vêm do ambiente ou de um `.env` na raiz (12-factor). O `.env.example`
-lista o conjunto completo com os valores padrão.
+lista o conjunto completo com os valores padrão. Variáveis opcionais deixadas
+em branco (`VAR=`) são tratadas como ausentes, usando o valor padrão.
 
 | Variável | Padrão | Descrição |
 |---|---|---|

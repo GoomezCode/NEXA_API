@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -36,6 +38,25 @@ def test_lists_accept_comma_separated_values() -> None:
 def test_models_cache_seconds_cannot_be_negative() -> None:
     with pytest.raises(ValidationError):
         make_settings(models_cache_seconds=-1)
+
+
+def test_empty_values_in_env_file_are_ignored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("CLOUD_PROVIDER", raising=False)
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("CLOUD_PROVIDER=\nCORS_ORIGINS=\n", encoding="utf-8")
+
+    settings = Settings(
+        _env_file=env_file,
+        admin_username="admin",
+        admin_password_hash=PASSWORD_HASH,
+        jwt_secret="x" * 40,
+    )
+
+    assert settings.cloud_provider is None
+    assert settings.cors_origins == ["http://localhost:5173"]
 
 
 def test_log_level_is_normalized() -> None:
