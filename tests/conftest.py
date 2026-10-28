@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import FastAPI
@@ -31,14 +32,35 @@ def make_settings(**overrides: object) -> Settings:
     return Settings(**{**BASE_SETTINGS, **overrides})
 
 
+class FakeClock:
+    """Relógio controlável para testes de expiração e janelas."""
+
+    def __init__(self, now: datetime | None = None) -> None:
+        self._now = now or datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
+
+    def now(self) -> datetime:
+        return self._now
+
+    def advance(self, seconds: float) -> None:
+        self._now += timedelta(seconds=seconds)
+
+    def set(self, now: datetime) -> None:
+        self._now = now
+
+
+@pytest.fixture
+def clock() -> FakeClock:
+    return FakeClock()
+
+
 @pytest.fixture
 def settings() -> Settings:
     return make_settings()
 
 
 @pytest.fixture
-def app(settings: Settings) -> FastAPI:
-    return create_app(settings)
+def app(settings: Settings, clock: FakeClock) -> FastAPI:
+    return create_app(settings, clock=clock)
 
 
 @pytest.fixture

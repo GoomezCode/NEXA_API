@@ -453,17 +453,22 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] `core/security.py`: `hash_password`, `verify_password` (argon2id), `create_token`, `decode_token` (assinatura, `exp`, `role`).
-- [ ] `core/auth.py`: `AuthService.authenticate(username, password)` com verificação em tempo constante e *dummy hash* para usuário inexistente (RF-AUT-04).
-- [ ] `POST /auth/login` com `TOKEN_RESPONSE`.
-- [ ] `POST /auth/guest`: `gid` UUIDv4, JWT `guest`, `usage` inicial; limite por IP (`GUEST_TOKENS_PER_IP_PER_HOUR`).
-- [ ] `core/rate_limit.py`: janela deslizante para login e emissão de token.
-- [ ] Bloqueio de login (`LOGIN_MAX_ATTEMPTS`/`LOGIN_LOCK_MINUTES`) → `429 login_locked` + `Retry-After`.
-- [ ] Dependências `get_current_user`/`require_admin` → `401` com `WWW-Authenticate` e `403` para guest.
+- [x] `core/security.py`: `hash_password`, `verify_password` (argon2id/bcrypt), `create_access_token`, `decode_access_token` (assinatura, `exp` via relógio injetável, `role`).
+- [x] `core/auth.py`: `AuthService.authenticate(username, password)` com verificação em tempo constante e *dummy hash* para usuário inexistente (RF-AUT-04).
+- [x] `POST /api/v1/auth/login` com `TokenResponse`.
+- [x] `POST /api/v1/auth/guest`: `gid` UUIDv4, JWT `guest`, `usage` inicial; limite por IP (`GUEST_TOKENS_PER_IP_PER_HOUR`).
+- [x] `core/rate_limit.py`: janela deslizante para login e emissão de token.
+- [x] Bloqueio de login (`LOGIN_MAX_ATTEMPTS`/`LOGIN_LOCK_MINUTES`) → `429 login_locked` + `Retry-After`.
+- [x] Dependências `get_current_user`/`require_admin` → `401` com `WWW-Authenticate` e `403` para guest.
+- [x] `schemas/auth.py` e `schemas/usage.py` (`UsageInfo` único, RD-08).
 
-**Testes:** login ok/401 genérico/timing equivalente/lockout; guest token + limite; JWT expirado/assinatura inválida/papel desconhecido.
+**Testes:** login ok/401 genérico/timing equivalente/lockout; guest token + limite; JWT expirado/assinatura inválida/papel desconhecido; dependências e 403.
 
 **Gate:** CA-01, CA-02, CA-03, CA-10, CA-16, CA-22.
+
+> **Concluída em 28/10/2026:** 158 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; smoke test com `uvicorn` validado (login 200/401 com `WWW-Authenticate`,
+> guest 200 com `gid` e `usage`).
 
 ---
 

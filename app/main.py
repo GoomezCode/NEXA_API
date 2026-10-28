@@ -6,11 +6,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import system
+from app.api import auth, system
 from app.config import Settings, get_settings
+from app.core.auth import AuthService
+from app.core.clock import Clock, SystemClock
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import BodyLimitMiddleware, RequestContextMiddleware
+from app.core.rate_limit import SlidingWindowLimiter
 
 EXPOSED_HEADERS = [
     "X-RateLimit-Limit",
@@ -34,9 +37,10 @@ API do chat de IA via web, conforme o SRS v1.1.
 """
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, clock: Clock | None = None) -> FastAPI:
     """Cria a aplicação com configuração explícita ou vinda do ambiente."""
     resolved = settings or get_settings()
+    resolved_clock = clock or SystemClock()
     configure_logging(resolved.log_level)
 
     app = FastAPI(
@@ -50,8 +54,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Estado compartilhado. O check de IA é registrado na fase de provedores.
     app.state.settings = resolved
+    app.state.clock = resolved_clock
     app.state.ai_health = None
     app.state.ai_provider_name = resolved.ai_provider
+    app.state.auth_service = AuthService(resolved, resolved_clock)
+    app.state.login_limiter = SlidingWindowLimiter(
+        resolved_clock,
+        limit=resolved.login_max_attempts,
+        window_seconds=resolved.login_lock_minutes * 60,
+    )
+    app.state.guest_token_limiter = SlidingWindowLimiter(
+        resolved_clock,
+        limit=resolved.guest_tokens_per_ip_per_hour,
+        window_seconds=3600,
+    )
 
     # Pilha (de dentro para fora): BodyLimit → CORS → RequestContext.
     # RequestContext é o mais externo para que *toda* resposta (inclusive
@@ -70,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(system.router)
+    app.include_router(auth.router)
     return app
 
 

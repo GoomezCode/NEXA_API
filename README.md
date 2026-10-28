@@ -38,6 +38,8 @@ Endpoints disponíveis na fase atual:
 
 | Método | Rota | Descrição |
 |---|---|---|
+| POST | `/api/v1/auth/login` | Login do administrador (JWT) |
+| POST | `/api/v1/auth/guest` | Emite token de convidado (`gid` + `usage` inicial) |
 | GET | `/health` | Saúde da API (`status`, `version`, `request_id`) |
 | GET | `/health/ready` | Prontidão (inclui provedor de IA) |
 | GET | `/docs` | OpenAPI (Swagger UI) |
@@ -73,6 +75,6 @@ tests/
 
 ## Fases
 
-A implementação segue o plano: **F0 Fundação** (concluída), F1 Autenticação,
+A implementação segue o plano: **F0 Fundação** e **F1 Autenticação** (concluídas),
 F2 Provedores de IA, F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração,
 F7 Hardening, F8 Observabilidade, F9 Empacotamento, F10 Conformidade.
