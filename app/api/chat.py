@@ -157,6 +157,13 @@ async def chat(
     decision = await store.consume(role=user.role, subject=user.subject, ip=ip)
     if not decision.allowed:
         stats.record_rate_limited()
+        # RNF-OBS-04: limite atingido é evento de segurança auditável em log.
+        logger.warning(
+            "chat_rate_limited",
+            role=user.role,
+            code=decision.code,
+            retry_after=decision.retry_after,
+        )
     usage = _consume_or_raise(decision)
 
     provider = cast(AIProvider, request.app.state.ai_provider)
@@ -205,6 +212,7 @@ async def chat(
                 "chat_provider_failed",
                 role=user.role,
                 provider=provider.name,
+                model=provider.model,
                 code=api_error.code,
                 duration_ms=round((time.perf_counter() - started) * 1000, 2),
             )

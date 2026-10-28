@@ -220,6 +220,7 @@ def _log_failure(session: StreamSession, code: str, started: float) -> None:
         "chat_stream_failed",
         role=session.role,
         provider=session.provider.name,
+        model=session.provider.model,
         code=code,
         duration_ms=round((time.perf_counter() - started) * 1000, 2),
     )

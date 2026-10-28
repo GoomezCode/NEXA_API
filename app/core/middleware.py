@@ -31,6 +31,13 @@ def _header(scope: Scope, name: bytes) -> str | None:
     return None
 
 
+def _route_path(scope: Scope) -> str:
+    """Rota resolvida (template); cai no caminho bruto quando não houve match."""
+    route = scope.get("route")
+    path = getattr(route, "path", None)
+    return path if isinstance(path, str) else scope.get("path", "")
+
+
 def _normalize_request_id(value: str | None) -> str:
     """Aceita somente UUID válido; caso contrário gera um novo (RF-SIS-03)."""
     if value:
@@ -79,6 +86,7 @@ class RequestContextMiddleware:
                     "http_request",
                     method=scope.get("method", ""),
                     path=scope.get("path", ""),
+                    route=_route_path(scope),
                     status=message.get("status", 0),
                     duration_ms=round((time.perf_counter() - start) * 1000, 2),
                 )
@@ -91,6 +99,7 @@ class RequestContextMiddleware:
                 "http_request_failed",
                 method=scope.get("method", ""),
                 path=scope.get("path", ""),
+                route=_route_path(scope),
                 duration_ms=round((time.perf_counter() - start) * 1000, 2),
             )
             raise

@@ -85,5 +85,5 @@ tests/
 
 A implementação segue o plano: **F0 Fundação**, **F1 Autenticação**,
 **F2 Provedores de IA**, **F3 Cotas e limites**, **F4 Chat JSON**,
-**F5 Streaming SSE**, **F6 Administração** e **F7 Hardening** (concluídas);
-F8 Observabilidade, F9 Empacotamento, F10 Conformidade.
+**F5 Streaming SSE**, **F6 Administração**, **F7 Hardening** e
+**F8 Observabilidade** (concluídas); F9 Empacotamento, F10 Conformidade.

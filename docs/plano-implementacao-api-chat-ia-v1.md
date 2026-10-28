@@ -618,12 +618,16 @@ Objetivo: deixar o store de uso pronto e testado **antes** de integrá-lo ao cha
 
 **Tarefas**
 
-- [ ] Logs JSON com `request_id`, rota, status, latência, papel, provedor, modelo, duração e tokens.
-- [ ] Eventos de segurança: falha de login, lockout, cota atingida, erro de provedor.
-- [ ] Correlação do `X-Request-ID` com o provider (header quando suportado).
-- [ ] Teste de redaction.
+- [x] Logs JSON com `request_id`, rota, status, latência, papel, provedor, modelo, duração e tokens (`http_request`, `chat_completed`, `chat_stream_completed`).
+- [x] Eventos de segurança: falha de login (`admin_login_failed`), lockout (`admin_login_locked`), cota atingida (`chat_rate_limited`), erro de provedor (`chat_provider_failed`/`chat_stream_failed`) e reset administrativo.
+- [x] Correlação do `X-Request-ID` com o provider (header quando suportado).
+- [x] Teste de redaction (token, senha e conteúdo das mensagens ausentes em stdout/stderr).
 
 **Gate:** RNF-OBS-01..05 verificados por teste de log.
+
+> **Concluída em 28/10/2026:** 412 testes, cobertura de 99% em `app/`, Ruff e mypy
+> verdes; `route` resolvida no log de acesso, `request_id` em todas as linhas da
+> requisição (inclusive no streaming) e eventos de segurança auditáveis.
 
 ---
 
