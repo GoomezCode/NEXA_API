@@ -269,6 +269,54 @@ def test_deprecated_api_key_accessors() -> None:
     assert settings.ollama_cloud_api_key_value is None
 
 
+def test_compat_defaults() -> None:
+    settings = make_settings()
+
+    assert settings.compat_openai_enabled is True
+    assert settings.compat_anthropic_enabled is True
+    assert settings.compat_ollama_enabled is True
+    assert settings.compat_api_keys == []
+    assert settings.compat_api_key_rate_per_min == 60
+    assert settings.compat_allow_anonymous is False
+    assert settings.compat_ollama_allow_localhost is False
+
+
+def test_compat_keys_are_split_and_trimmed() -> None:
+    settings = make_settings(compat_api_keys=" nxa_live_a , nxa_test_b ,,")
+
+    assert settings.compat_api_keys == ["nxa_live_a", "nxa_test_b"]
+
+
+def test_compat_rate_limit_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        make_settings(compat_api_key_rate_per_min=0)
+
+
+def test_production_rejects_anonymous_compat() -> None:
+    with pytest.raises(ValidationError, match="proibidos em produção"):
+        make_settings(
+            environment="production",
+            jwt_secret="z" * 40,
+            compat_allow_anonymous=True,
+        )
+    with pytest.raises(ValidationError, match="proibidos em produção"):
+        make_settings(
+            environment="production",
+            jwt_secret="z" * 40,
+            compat_ollama_allow_localhost=True,
+        )
+
+
+def test_production_allows_compat_with_api_keys() -> None:
+    settings = make_settings(
+        environment="production",
+        jwt_secret="z" * 40,
+        compat_api_keys="nxa_live_ok",
+    )
+
+    assert settings.compat_api_keys == ["nxa_live_ok"]
+
+
 def test_get_settings_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings.cache_clear()
     monkeypatch.setenv("ADMIN_USERNAME", "root")

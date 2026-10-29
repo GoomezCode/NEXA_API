@@ -963,6 +963,719 @@
         "title": "ModelsResponse",
         "type": "object"
       },
+      "OpenAIAssistantMessage": {
+        "additionalProperties": false,
+        "description": "Mensagem `assistant` devolvida ao cliente.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIToolCallOut"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          }
+        },
+        "title": "OpenAIAssistantMessage",
+        "type": "object"
+      },
+      "OpenAIChatRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /v1/chat/completions`.",
+        "example": {
+          "max_tokens": 256,
+          "messages": [
+            {
+              "content": "Seja breve.",
+              "role": "system"
+            },
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "model": "openai/gpt-4o-mini",
+          "response_format": {
+            "type": "text"
+          },
+          "stop": [
+            "\n\n"
+          ],
+          "stream": false,
+          "temperature": 0.7,
+          "top_p": 1.0
+        },
+        "properties": {
+          "frequency_penalty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency Penalty"
+          },
+          "logit_bias": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logit Bias"
+          },
+          "logprobs": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logprobs"
+          },
+          "max_completion_tokens": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Completion Tokens"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIMessage"
+            },
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "n": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "N",
+            "type": "integer"
+          },
+          "parallel_tool_calls": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parallel Tool Calls"
+          },
+          "presence_penalty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presence Penalty"
+          },
+          "response_format": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIResponseFormat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "stop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop"
+          },
+          "stream": {
+            "default": false,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "stream_options": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIStreamOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Choice"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OpenAITool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "OpenAIChatRequest",
+        "type": "object"
+      },
+      "OpenAIChatResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /v1/chat/completions` (CA-31).",
+        "example": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "Olá! Como posso ajudar?",
+                "role": "assistant",
+                "tool_calls": []
+              }
+            }
+          ],
+          "created": 1761748200,
+          "id": "chatcmpl-nexa-0192f3a4000070008000",
+          "model": "gpt-4o-mini",
+          "object": "chat.completion",
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 12,
+            "total_tokens": 20
+          }
+        },
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIChoice"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "object": {
+            "const": "chat.completion",
+            "default": "chat.completion",
+            "title": "Object",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/OpenAIUsage"
+          }
+        },
+        "required": [
+          "id",
+          "created",
+          "model",
+          "choices",
+          "usage"
+        ],
+        "title": "OpenAIChatResponse",
+        "type": "object"
+      },
+      "OpenAIChoice": {
+        "additionalProperties": false,
+        "description": "Escolha da resposta (`n = 1`).",
+        "properties": {
+          "finish_reason": {
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls",
+              "content_filter"
+            ],
+            "title": "Finish Reason",
+            "type": "string"
+          },
+          "index": {
+            "default": 0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "message": {
+            "$ref": "#/components/schemas/OpenAIAssistantMessage"
+          }
+        },
+        "required": [
+          "message",
+          "finish_reason"
+        ],
+        "title": "OpenAIChoice",
+        "type": "object"
+      },
+      "OpenAIMessage": {
+        "additionalProperties": true,
+        "description": "Mensagem no contrato OpenAI (`system`, `user`, `assistant`, `tool`).",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OpenAIToolCall"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "OpenAIMessage",
+        "type": "object"
+      },
+      "OpenAIModel": {
+        "additionalProperties": false,
+        "description": "Modelo no shape OpenAI.",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "object": {
+            "const": "model",
+            "default": "model",
+            "title": "Object",
+            "type": "string"
+          },
+          "owned_by": {
+            "default": "nexa",
+            "title": "Owned By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created"
+        ],
+        "title": "OpenAIModel",
+        "type": "object"
+      },
+      "OpenAIModelList": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /v1/models` (CA-33).",
+        "example": {
+          "data": [
+            {
+              "created": 1761748200,
+              "id": "openai/gpt-4o-mini",
+              "object": "model",
+              "owned_by": "nexa"
+            }
+          ],
+          "object": "list"
+        },
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIModel"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "object": {
+            "const": "list",
+            "default": "list",
+            "title": "Object",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "OpenAIModelList",
+        "type": "object"
+      },
+      "OpenAIResponseFormat": {
+        "additionalProperties": true,
+        "description": "`response_format`; `json_object`/`json_schema` exigem `json_mode`.",
+        "properties": {
+          "type": {
+            "default": "text",
+            "enum": [
+              "text",
+              "json_object",
+              "json_schema"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "OpenAIResponseFormat",
+        "type": "object"
+      },
+      "OpenAIStreamOptions": {
+        "additionalProperties": true,
+        "description": "`stream_options`; `include_usage` envia o chunk final de uso.",
+        "properties": {
+          "include_usage": {
+            "default": false,
+            "title": "Include Usage",
+            "type": "boolean"
+          }
+        },
+        "title": "OpenAIStreamOptions",
+        "type": "object"
+      },
+      "OpenAITool": {
+        "additionalProperties": true,
+        "description": "Ferramenta declarada no contrato OpenAI.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OpenAIToolFunction"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OpenAITool",
+        "type": "object"
+      },
+      "OpenAIToolCall": {
+        "additionalProperties": true,
+        "description": "Chamada de ferramenta no formato OpenAI.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OpenAIToolCallFunction"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "function"
+        ],
+        "title": "OpenAIToolCall",
+        "type": "object"
+      },
+      "OpenAIToolCallFunction": {
+        "additionalProperties": true,
+        "description": "Função chamada pelo modelo (argumentos em string JSON, como na OpenAI).",
+        "properties": {
+          "arguments": {
+            "default": "{}",
+            "title": "Arguments",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OpenAIToolCallFunction",
+        "type": "object"
+      },
+      "OpenAIToolCallOut": {
+        "additionalProperties": false,
+        "description": "Chamada de ferramenta na resposta.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OpenAIToolCallFunction"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "function"
+        ],
+        "title": "OpenAIToolCallOut",
+        "type": "object"
+      },
+      "OpenAIToolFunction": {
+        "additionalProperties": true,
+        "description": "Definição da função de uma ferramenta.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OpenAIToolFunction",
+        "type": "object"
+      },
+      "OpenAIUsage": {
+        "additionalProperties": false,
+        "description": "Tokens da resposta, no shape OpenAI.",
+        "properties": {
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "title": "Total Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt_tokens",
+          "completion_tokens",
+          "total_tokens"
+        ],
+        "title": "OpenAIUsage",
+        "type": "object"
+      },
       "ProviderModels": {
         "additionalProperties": false,
         "description": "Catálogo de um provedor habilitado.",
@@ -3125,6 +3838,109 @@
         "summary": "Prontidão da API",
         "tags": [
           "Sistema"
+        ]
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "description": "Traduz o contrato OpenAI para o pipeline nativo: valida modelo/capacidades, aplica cotas e rate limit da API key e devolve `chat.completion` (JSON) ou `chat.completion.chunk` seguido de `data: [DONE]` (streaming).",
+        "operationId": "create_chat_completion_v1_chat_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAIChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIChatResponse"
+                }
+              },
+              "text/event-stream": {
+                "example": "data: {\"id\":\"chatcmpl-nexa-0192\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Olá\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-nexa-0192\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Resposta JSON ou stream SSE."
+          },
+          "400": {
+            "description": "Parâmetro não suportado."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "description": "Requisição inválida."
+          },
+          "429": {
+            "description": "Rate limit ou cota excedida."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chat no formato OpenAI",
+        "tags": [
+          "Compatibilidade OpenAI"
+        ]
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "description": "Lista o catálogo agregado dos provedores habilitados como `{\"object\":\"list\",\"data\":[...]}`. Consultar o catálogo não consome cota.",
+        "operationId": "list_models_v1_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIModelList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          },
+          "503": {
+            "description": "Provedores indisponíveis."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Modelos no formato OpenAI",
+        "tags": [
+          "Compatibilidade OpenAI"
         ]
       }
     }

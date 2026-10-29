@@ -11,7 +11,7 @@
 | **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v2.0) |
 | **Escopo** | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
-| **Estado** | **Concluído** - F13 implementado em 29/10/2026. Próxima: F14 (compatibilidade OpenAI). |
+| **Estado** | **Concluído** - F14 implementado em 29/10/2026. Próxima: F15 (compatibilidade Anthropic / Claude Code). |
 
 ### Histórico de revisões
 
@@ -568,12 +568,12 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] `core/api_keys.py`: leitura de `COMPAT_API_KEYS`, comparação em tempo constante, prefixo/fingerprint e escopos.
-- [ ] Rate limit por API key (`COMPAT_API_KEY_RATE_PER_MIN`).
-- [ ] `POST /v1/chat/completions` JSON com `model`, `messages`, `temperature`, `top_p`, `max_tokens`, `stop`, `tools`, `tool_choice`, `response_format`, `user`.
-- [ ] Streaming SSE com `chat.completion.chunk` e `data: [DONE]`.
-- [ ] `GET /v1/models` no shape `{"object":"list","data":[...]}`.
-- [ ] Envelope de erro OpenAI e testes de contrato.
+- [x] `core/api_keys.py`: leitura de `COMPAT_API_KEYS`, comparação em tempo constante, prefixo/fingerprint e escopos.
+- [x] Rate limit por API key (`COMPAT_API_KEY_RATE_PER_MIN`).
+- [x] `POST /v1/chat/completions` JSON com `model`, `messages`, `temperature`, `top_p`, `max_tokens`, `stop`, `tools`, `tool_choice`, `response_format`, `user`.
+- [x] Streaming SSE com `chat.completion.chunk` e `data: [DONE]`.
+- [x] `GET /v1/models` no shape `{"object":"list","data":[...]}`.
+- [x] Envelope de erro OpenAI e testes de contrato.
 
 **Testes:** request/response golden; streaming; tools; modelo inválido; cota; API key ausente/inválida; erro de provedor; CORS.
 

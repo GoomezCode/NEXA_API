@@ -2,7 +2,7 @@
 
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
-> **Estado:** planejado para as fases F14–F16; a API em produção permanece na v1.1.0.
+> **Estado:** OpenAI implementado na F14; Anthropic e Ollama planejados para F15–F16. A API em produção permanece na v1.1.0.
 
 ## 1. Objetivo
 
@@ -99,12 +99,12 @@ COMPAT_OLLAMA_ALLOW_LOCALHOST=false
 | `messages` | ✅ | `system`, `user`, `assistant`, `tool` |
 | `stream` | ✅ | SSE com `data: [DONE]` |
 | `stream_options` | ⚠️ | `include_usage` suportado; demais ignorados |
-| `temperature` | ✅ | Clampado ao intervalo do provedor |
-| `top_p` | ✅ | Clampado |
+| `temperature` | ⚠️ | Aceito e validado (0–2); o adapter atual não repassa o valor |
+| `top_p` | ⚠️ | Aceito e validado (0–1); o adapter atual não repassa o valor |
 | `max_tokens` / `max_completion_tokens` | ✅ | Limitado por `AI_MAX_OUTPUT_TOKENS` |
-| `stop` | ✅ | Até 4 sequências |
+| `stop` | ⚠️ | Até 4 sequências; validado e ainda não repassado ao adapter |
 | `tools` / `tool_choice` | ✅ | Requer capacidade `tools` |
-| `response_format` | ⚠️ | `text` e `json_object`; `json_schema` pode ser emulado |
+| `response_format` | ⚠️ | `text` e `json_object`; `json_schema` é tratado como `json_mode` |
 | `user` | ⚠️ | Usado apenas para logging/rate limit; não persiste |
 | `n` | ❌ | Retorna `400 unsupported_parameter` se `n > 1` |
 | `presence_penalty`, `frequency_penalty`, `seed`, `logit_bias` | ⚠️ | Aceitos e ignorados quando o provedor não suporta |

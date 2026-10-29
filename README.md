@@ -276,11 +276,11 @@ curl -sS -X POST http://localhost:8000/api/v1/admin/usage/reset \
   -d '{"scope":"gid","value":"<gid>"}'
 ```
 
-## Exemplos planejados de compatibilidade (v2.0)
+## Compatibilidade com APIs externas (v2.0)
 
-> Estes exemplos só funcionarão após as fases F14–F16.
+> OpenAI disponível desde a F14; Anthropic/Claude Code e Ollama chegam nas F15–F16.
 
-OpenAI:
+OpenAI (requer `COMPAT_API_KEYS` configurado):
 
 ```bash
 curl -sS -X POST http://localhost:8000/v1/chat/completions \
@@ -351,10 +351,11 @@ tests/
 F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração, F7 Hardening,
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade e F11 Catálogo de modelos.
 
-**Concluídas (v2.0):** F12 Gateway multi-provedor e F13 SQLite de usuários.
+**Concluídas (v2.0):** F12 Gateway multi-provedor, F13 SQLite de usuários e
+F14 Compatibilidade OpenAI.
 
-**Planejadas (v2.0):** F14 Compat OpenAI, F15 Compat Anthropic/Claude Code,
-F16 Compat Ollama e F17 Hardening/release `v2.0.0`.
+**Planejadas (v2.0):** F15 Compat Anthropic/Claude Code, F16 Compat Ollama e
+F17 Hardening/release `v2.0.0`.
 
 ## Release
 

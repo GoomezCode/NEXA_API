@@ -19,6 +19,7 @@ from app.ai.base import (
 )
 from app.ai.router import ProviderRouter, ResolvedModel
 from app.api.deps import CurrentUser, get_current_user
+from app.compat.errors import compat_validation_from_exception, is_openai_path
 from app.config import Settings
 from app.core.chat import context_errors
 from app.core.chat_stream import StreamSession, error_code, stream_events
@@ -139,6 +140,9 @@ async def validation_error_with_quota(request: Request, exc: Exception) -> JSONR
     """422 padrão; em `POST /chat`, acrescenta os cabeçalhos de RF-USO-08."""
     if not isinstance(exc, RequestValidationError):
         return await unhandled_exception_handler(request, exc)
+    if is_openai_path(request.url.path):
+        # RF-CMP-06: rotas de compatibilidade respondem no envelope externo.
+        return compat_validation_from_exception(request, exc)
     response = await validation_error_handler(request, exc)
     if request.method != "POST" or request.url.path.rstrip("/") != CHAT_PATH:
         return response

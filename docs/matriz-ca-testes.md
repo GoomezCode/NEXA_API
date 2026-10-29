@@ -3,7 +3,7 @@
 Rastreabilidade dos critérios de aceitação para os testes automatizados.
 
 - **v1.1.0:** SRS v1.2, CA-01..CA-25, implementados e verificados.
-- **v2.0:** SRS v2.0, CA-26..CA-45 **implementados** pelas fases F12–F13; CA-46..CA-47 planejados (⏳) para as fases F14–F17.
+- **v2.0:** SRS v2.0; CA-26..CA-33 e CA-40..CA-45 **implementados** (F12–F14); CA-34..CA-39, CA-46 e CA-47 planejados (⏳) para as fases F15–F17.
 
 Execute a matriz completa com:
 
@@ -78,9 +78,9 @@ Execute a matriz completa com:
 | CA-28 | Catálogo agregado com provedores, capacidades, `selectable` e `?refresh=true` | `tests/integration/test_models.py`, `tests/unit/test_model_catalog.py` | ⏳ |
 | CA-29 | Capacidade incompatível → `422 unsupported_capability` sem cota | `tests/integration/test_chat.py`, `tests/unit/test_capabilities.py` | ⏳ |
 | CA-30 | Fallback somente antes do 1º token, com cota única | `tests/unit/test_ai_router.py`, `tests/integration/test_chat.py` | ⏳ |
-| CA-31 | `POST /v1/chat/completions` JSON no shape OpenAI | `tests/contract/test_openai.py` | ⏳ |
-| CA-32 | Streaming OpenAI com `chat.completion.chunk` + `[DONE]` | `tests/contract/test_openai.py` | ⏳ |
-| CA-33 | `GET /v1/models` no shape `{"object":"list","data":[...]}` | `tests/contract/test_openai.py` | ⏳ |
+| CA-31 | `POST /v1/chat/completions` JSON no shape OpenAI | `tests/contract/test_openai.py::test_json_chat_returns_openai_shape`, `test_tools_are_translated_to_and_from_openai` | ✅ |
+| CA-32 | Streaming OpenAI com `chat.completion.chunk` + `[DONE]` | `tests/contract/test_openai.py::test_stream_emits_chunks_and_done`, `test_stream_errors_use_openai_envelope_without_done` | ✅ |
+| CA-33 | `GET /v1/models` no shape `{"object":"list","data":[...]}` | `tests/contract/test_openai.py::test_models_endpoint_returns_openai_list` | ✅ |
 | CA-34 | `POST /v1/messages` JSON no shape Anthropic | `tests/contract/test_anthropic.py` | ⏳ |
 | CA-35 | Streaming Anthropic + `tool_use` | `tests/contract/test_anthropic.py` | ⏳ |
 | CA-36 | Claude Code E2E (tools, system, streaming, `count_tokens`) | `tests/e2e/test_claude_code.py` | ⏳ |

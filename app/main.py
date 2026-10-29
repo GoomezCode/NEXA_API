@@ -13,7 +13,10 @@ from app import __version__
 from app.ai import AIProvider, build_registry, provider_label
 from app.ai.router import ProviderRouter
 from app.api import admin, auth, chat, models, system, usage, users
+from app.compat.errors import CompatApiError, compat_error_handler
+from app.compat.openai import router as openai_compat_router
 from app.config import Settings, get_settings
+from app.core.api_keys import ApiKeyRegistry
 from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
 from app.core.errors import register_exception_handlers
@@ -164,6 +167,12 @@ def create_app(
         limit=resolved.guest_tokens_per_ip_per_hour,
         window_seconds=3600,
     )
+    app.state.compat_api_keys = ApiKeyRegistry.from_settings(resolved)
+    app.state.compat_key_limiter = SlidingWindowLimiter(
+        resolved_clock,
+        limit=resolved.compat_api_key_rate_per_min,
+        window_seconds=60,
+    )
 
     # Pilha (de dentro para fora): ContentType → BodyLimit → CORS → RequestContext.
     # RequestContext é o mais externo para que *toda* resposta (inclusive
@@ -183,6 +192,8 @@ def create_app(
     app.add_middleware(RequestContextMiddleware, settings=resolved)
 
     register_exception_handlers(app)
+    # Compatibilidade tem envelope de erro próprio (RF-CMP-06).
+    app.add_exception_handler(CompatApiError, compat_error_handler)
     # Em `POST /chat`, o 422 também carrega os cabeçalhos de cota (RF-USO-08).
     app.add_exception_handler(RequestValidationError, chat.validation_error_with_quota)
     app.include_router(system.router)
@@ -192,6 +203,8 @@ def create_app(
     app.include_router(models.router)
     app.include_router(admin.router)
     app.include_router(users.router)
+    if resolved.compat_openai_enabled:
+        app.include_router(openai_compat_router)
     return app
 
 

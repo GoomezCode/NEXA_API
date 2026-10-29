@@ -37,6 +37,8 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/api/v1/admin/users/cleanup": {"post"},
     "/api/v1/admin/users/{user_id}": {"get", "patch", "delete"},
     "/api/v1/admin/users/{user_id}/reset-password": {"post"},
+    "/v1/chat/completions": {"post"},
+    "/v1/models": {"get"},
 }
 
 PUBLIC_OPERATIONS = {
@@ -73,6 +75,9 @@ DOCUMENTED_EXAMPLE_SCHEMAS = (
     "ResetPasswordRequest",
     "ResetPasswordResponse",
     "CleanupResponse",
+    "OpenAIChatRequest",
+    "OpenAIChatResponse",
+    "OpenAIModelList",
 )
 
 

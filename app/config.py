@@ -179,6 +179,16 @@ class Settings(BaseSettings):
     db_startup_check: Literal["quick", "full", "off"] = "quick"
     db_optimize_on_shutdown: bool = True
 
+    # --- Compatibilidade com APIs externas (v2.0) ---------------------------
+    compat_openai_enabled: bool = True
+    compat_anthropic_enabled: bool = True
+    compat_ollama_enabled: bool = True
+    compat_api_keys: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    compat_api_key_rate_per_min: int = Field(default=60, ge=1)
+    compat_allow_anonymous: bool = False
+    compat_ollama_allow_localhost: bool = False
+    compat_anthropic_version: str = "2023-06-01"
+
     # --- Validadores de campo ----------------------------------------------
     @field_validator("admin_username")
     @classmethod
@@ -217,6 +227,7 @@ class Settings(BaseSettings):
         "ai_allowed_models",
         "ai_fallback_chain",
         "ai_enabled_providers",
+        "compat_api_keys",
         mode="before",
     )
     @classmethod
@@ -283,6 +294,7 @@ class Settings(BaseSettings):
         self._check_body_limit()
         self._check_ai()
         self._check_database()
+        self._check_compat()
         self._check_urls()
         return self
 
@@ -376,6 +388,15 @@ class Settings(BaseSettings):
                     raise ValueError(
                         f"AI_MODEL_ALIASES['{alias}'] usa provedor desconhecido: {provider}"
                     )
+
+    def _check_compat(self) -> None:
+        """Compatibilidade sem chave é exclusiva de desenvolvimento (RF-CMP-05)."""
+        if self.environment == "production" and (
+            self.compat_allow_anonymous or self.compat_ollama_allow_localhost
+        ):
+            raise ValueError(
+                "COMPAT_ALLOW_ANONYMOUS/COMPAT_OLLAMA_ALLOW_LOCALHOST são proibidos em produção"
+            )
 
     def _check_urls(self) -> None:
         urls = {
