@@ -75,8 +75,10 @@ def _split_system(
                 system_parts.append(message.content)
             continue
         converted.append(
-            {"role": "assistant" if message.role == "assistant" else "user",
-             "content": _content_blocks(message)}
+            {
+                "role": "assistant" if message.role == "assistant" else "user",
+                "content": _content_blocks(message),
+            }
         )
     system = "\n\n".join(system_parts) if system_parts else None
     return system, converted
@@ -330,7 +332,11 @@ class AnthropicProvider:
         if event_type == "content_block_start":
             index = data.get("index")
             block = data.get("content_block")
-            if isinstance(index, int) and isinstance(block, dict) and block.get("type") == "tool_use":
+            if (
+                isinstance(index, int)
+                and isinstance(block, dict)
+                and block.get("type") == "tool_use"
+            ):
                 blocks[index] = {
                     "id": block.get("id") or f"call_{index}",
                     "name": block.get("name") or "",

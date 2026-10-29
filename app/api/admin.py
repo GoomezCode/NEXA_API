@@ -13,6 +13,8 @@ from app.core.errors import ApiError
 from app.core.logging import get_logger
 from app.core.stats import UsageStats
 from app.core.usage_store import UsageStore
+from app.core.users import UserService
+from app.db.connection import Database
 from app.schemas.admin import (
     AiStatusResponse,
     GuestEntry,
@@ -22,6 +24,7 @@ from app.schemas.admin import (
     ResetRequest,
     StatsResponse,
 )
+from app.schemas.users import DbStatusResponse
 
 router = APIRouter(
     prefix="/api/v1/admin",
@@ -45,6 +48,44 @@ logger = get_logger("nexa.admin")
 async def get_stats(request: Request) -> StatsResponse:
     stats = cast(UsageStats, request.app.state.stats)
     return StatsResponse(**asdict(stats.snapshot()))
+
+
+@router.get(
+    "/db/status",
+    response_model=DbStatusResponse,
+    summary="Status e latência do SQLite",
+    description=(
+        "Expõe caminho, tamanho, WAL, versão de migração, contagem de usuários e "
+        "latências p95 de leitura/escrita. Nunca retorna conteúdo sensível."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Banco indisponível."},
+    },
+)
+async def database_status(request: Request) -> DbStatusResponse:
+    database: Database | None = getattr(request.app.state, "database", None)
+    users = cast(UserService, request.app.state.user_service)
+    if database is None or not database.is_open:
+        raise ApiError("database_unavailable")
+    try:
+        total, test_total = await users.stats()
+        return DbStatusResponse(
+            status="ok",
+            path=str(database.path),
+            size_bytes=database.file_size(),
+            wal=(await database.journal_mode()) == "wal",
+            migration_version=await database.migration_version(),
+            users_total=total,
+            test_users_total=test_total,
+            read_latency_ms_p95=database.read_latency_ms_p95,
+            write_latency_ms_p95=database.write_latency_ms_p95,
+        )
+    except ApiError:
+        raise
+    except Exception as exc:  # pragma: no cover - SQLite inesperado
+        logger.warning("database_status_failed")
+        raise ApiError("database_unavailable") from exc
 
 
 @router.get(
@@ -114,15 +155,15 @@ async def list_guests(request: Request) -> GuestsResponse:
     "/usage/reset",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
-    summary="Zera a cota de um guest ou IP",
+    summary="Zera a cota de um guest, IP ou usuário",
     description=(
-        "Zera a cota diária do `gid` ou do IP informado. Alvo inexistente "
+        "Zera a cota diária do `gid`, do IP ou do `uid` informado. Alvo inexistente "
         "retorna `404` (`not_found`)."
     ),
     responses={
         status.HTTP_204_NO_CONTENT: {"description": "Cota zerada."},
         status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
-        status.HTTP_404_NOT_FOUND: {"description": "`gid` ou IP sem cota ativa."},
+        status.HTTP_404_NOT_FOUND: {"description": "`gid`, IP ou `uid` sem cota ativa."},
     },
 )
 async def reset_usage(payload: ResetRequest, request: Request) -> Response:

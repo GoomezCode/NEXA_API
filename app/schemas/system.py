@@ -36,6 +36,29 @@ class ProviderReadiness(BaseModel):
     error: str | None = Field(default=None, description="Código do erro, quando indisponível.")
 
 
+class DbHealthResponse(BaseModel):
+    """Corpo de `GET /health/db` (RF-SIS-06)."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "status": "ok",
+                "wal": True,
+                "migration_version": 2,
+                "request_id": "b1f4c7e2-6f0f-4c39-9e57-6a1f0f0b8f4d",
+            }
+        },
+    )
+
+    status: Literal["ok", "unavailable"]
+    wal: bool | None = Field(default=None, description="Se o WAL está ativo.")
+    migration_version: int | None = Field(
+        default=None, description="Maior versão de migração aplicada."
+    )
+    request_id: str = Field(description="Identificador da requisição (RF-SIS-03).")
+
+
 class ReadinessResponse(BaseModel):
     """Corpo de `GET /health/ready` (RF-SIS-04/05)."""
 
@@ -62,4 +85,4 @@ class ReadinessResponse(BaseModel):
     request_id: str = Field(description="Identificador da requisição (RF-SIS-03).")
 
 
-__all__ = ["HealthResponse", "ProviderReadiness", "ReadinessResponse"]
+__all__ = ["DbHealthResponse", "HealthResponse", "ProviderReadiness", "ReadinessResponse"]

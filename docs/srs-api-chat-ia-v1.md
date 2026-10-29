@@ -10,7 +10,7 @@
 | **Data** | 29/10/2026 |
 | **Padrões de referência** | IEEE Std 830-1998, ISO/IEC/IEEE 29148:2018 |
 | **Documento de origem** | `levantamento-chat-ia-web.md` (documento externo a este repositório) |
-| **Estado** | **F12 CONCLUIDO** - gateway multi-provedor implementado. Próximas: F13-F17 (SQLite, performance, release v2.0.0). |
+| **Estado** | **F13 CONCLUIDO** - SQLite de usuários implementado (admin inviolável, usuários de teste e metas de performance). Próximas: F14-F17 (compatibilidade, hardening e release v2.0.0). |
 
 ### Histórico de revisões
 

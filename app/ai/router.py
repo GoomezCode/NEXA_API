@@ -498,9 +498,7 @@ class ProviderRouter:
     def _split(model_id: str) -> tuple[str, str]:
         provider, _, model = model_id.partition("/")
         if not provider or not model:
-            raise ModelNotFound(
-                f"Model ID inválido: '{model_id}'. Use o formato 'provider/model'."
-            )
+            raise ModelNotFound(f"Model ID inválido: '{model_id}'. Use o formato 'provider/model'.")
         return provider, model
 
     def _not_found_message(self, requested: str) -> str:
@@ -512,10 +510,7 @@ class ProviderRouter:
 
     def _not_allowed_message(self, requested: str) -> str:
         allowed = ", ".join(self._allowed) if self._allowed else "todos"
-        return (
-            f"Modelo '{requested}' não permitido por AI_ALLOWED_MODELS. "
-            f"Permitidos: {allowed}."
-        )
+        return f"Modelo '{requested}' não permitido por AI_ALLOWED_MODELS. Permitidos: {allowed}."
 
 
 def _glob_match(value: str, pattern: str) -> bool:

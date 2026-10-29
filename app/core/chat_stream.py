@@ -82,9 +82,7 @@ def error_code(exc: BaseException) -> str:
 
 async def stream_events(session: StreamSession) -> AsyncIterator[str]:
     """Gera os eventos SSE; devolve a cota se nada foi entregue."""
-    queue: asyncio.Queue[Any | BaseException | None] = asyncio.Queue(
-        maxsize=STREAM_QUEUE_SIZE
-    )
+    queue: asyncio.Queue[Any | BaseException | None] = asyncio.Queue(maxsize=STREAM_QUEUE_SIZE)
     routed = session.router is not None and session.resolution is not None
     if routed:
         assert session.router is not None and session.resolution is not None

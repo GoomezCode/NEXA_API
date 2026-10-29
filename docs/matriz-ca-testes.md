@@ -3,7 +3,7 @@
 Rastreabilidade dos critérios de aceitação para os testes automatizados.
 
 - **v1.1.0:** SRS v1.2, CA-01..CA-25, implementados e verificados.
-- **v2.0:** SRS v2.0, CA-26..CA-47, **planejados** (⏳) para as fases F12–F17.
+- **v2.0:** SRS v2.0, CA-26..CA-45 **implementados** pelas fases F12–F13; CA-46..CA-47 planejados (⏳) para as fases F14–F17.
 
 Execute a matriz completa com:
 
@@ -87,12 +87,12 @@ Execute a matriz completa com:
 | CA-37 | `/api/chat` NDJSON + `/api/tags` no shape Ollama | `tests/contract/test_ollama.py` | ⏳ |
 | CA-38 | Auth por API key, cotas/rate limit e envelope correto | `tests/contract/*`, `tests/integration/test_compat_auth.py` | ⏳ |
 | CA-39 | Chaves de provedor/API keys nunca expostas | `tests/unit/test_logging.py`, `tests/integration/test_compat_auth.py` | ⏳ |
-| CA-40 | Login do admin funciona sem SQLite (fallback) | `tests/integration/test_auth.py`, `tests/unit/test_auth_service.py` | ⏳ |
-| CA-41 | Admin inviolável por API e por SQL direto (triggers) | `tests/integration/test_users.py`, `tests/unit/test_user_repository.py` | ⏳ |
-| CA-42 | Ciclo de vida de usuários de teste; limpeza só `is_test=1` | `tests/integration/test_users.py`, `tests/unit/test_user_repository.py` | ⏳ |
-| CA-43 | Metas de performance do SQLite | `tests/performance/test_sqlite.py`, `scripts/db_benchmark.py` | ⏳ |
-| CA-44 | Migrações preservam admin, criam backup e recusam boot se ausente | `tests/unit/test_migrations.py`, `tests/integration/test_system.py` | ⏳ |
-| CA-45 | SQLite contém apenas usuários/migrações; nenhum conteúdo de chat | `tests/integration/test_chat.py`, `tests/integration/test_users.py` | ⏳ |
+| CA-40 | Login do admin funciona sem SQLite (fallback) | `tests/integration/test_users.py::test_admin_login_survives_database_removal`, `test_degraded_mode_keeps_admin_login_and_reports_unavailable`; `tests/integration/test_auth.py` | ✅ |
+| CA-41 | Admin inviolável por API e por SQL direto (triggers) | `tests/integration/test_users.py::test_admin_is_protected_on_every_write_route`; `tests/unit/test_user_repository.py::test_admin_cannot_be_deleted_or_demoted_by_sql`, `test_single_admin_and_protected_check_constraints` | ✅ |
+| CA-42 | Ciclo de vida de usuários de teste; limpeza só `is_test=1` | `tests/integration/test_users.py::test_full_test_user_lifecycle`, `test_cleanup_removes_expired_users_but_never_the_admin`; `tests/unit/test_user_repository.py::test_cleanup_removes_only_expired_test_users` | ✅ |
+| CA-43 | Metas de performance do SQLite | `tests/performance/test_sqlite.py`, `scripts/db_benchmark.py` | ✅ |
+| CA-44 | Migrações preservam admin, criam backup e recusam boot se ausente | `tests/unit/test_user_repository.py::test_migrations_are_idempotent_and_seed_the_admin`, `test_admin_seed_conflicts_with_existing_username`; `tests/integration/test_users.py::test_degraded_mode_keeps_admin_login_and_reports_unavailable` | ✅ |
+| CA-45 | SQLite contém apenas usuários/migrações; nenhum conteúdo de chat | `tests/integration/test_users.py::test_database_has_no_chat_tables`; `tests/unit/test_user_repository.py::test_only_users_and_migrations_are_stored`; `tests/integration/test_chat.py` | ✅ |
 | CA-46 | README, `.env.example`, SRS, plano, matriz e OpenAPI consistentes | `tests/integration/test_openapi_contract.py`, revisão de docs | ⏳ |
 | CA-47 | Contratos de compatibilidade e segurança de chaves verdes | `tests/contract/*`, `tests/e2e/test_claude_code.py` | ⏳ |
 

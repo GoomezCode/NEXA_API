@@ -1,4 +1,5 @@
 # Dependências de runtime (versões fixadas - RNF-MAN-08)
+aiosqlite==0.21.0
 argon2-cffi==25.1.0
 bcrypt==5.0.0
 fastapi==0.162.0

@@ -20,6 +20,7 @@ SNAPSHOT = Path(__file__).resolve().parents[1] / "snapshots" / "openapi.json"
 
 EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/health": {"get"},
+    "/health/db": {"get"},
     "/health/ready": {"get"},
     "/api/v1/auth/login": {"post"},
     "/api/v1/auth/guest": {"post"},
@@ -27,13 +28,20 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/api/v1/chat": {"post"},
     "/api/v1/models": {"get"},
     "/api/v1/admin/stats": {"get"},
+    "/api/v1/admin/db/status": {"get"},
     "/api/v1/admin/ai/status": {"get"},
     "/api/v1/admin/guests": {"get"},
     "/api/v1/admin/usage/reset": {"post"},
+    "/api/v1/admin/users": {"get", "post"},
+    "/api/v1/admin/users/bulk": {"post"},
+    "/api/v1/admin/users/cleanup": {"post"},
+    "/api/v1/admin/users/{user_id}": {"get", "patch", "delete"},
+    "/api/v1/admin/users/{user_id}/reset-password": {"post"},
 }
 
 PUBLIC_OPERATIONS = {
     ("/health", "get"),
+    ("/health/db", "get"),
     ("/health/ready", "get"),
     ("/api/v1/auth/login", "post"),
     ("/api/v1/auth/guest", "post"),
@@ -53,6 +61,18 @@ DOCUMENTED_EXAMPLE_SCHEMAS = (
     "HealthResponse",
     "ReadinessResponse",
     "LoginRequest",
+    "DbHealthResponse",
+    "DbStatusResponse",
+    "UserCreate",
+    "UserUpdate",
+    "UserResponse",
+    "UserCreateResponse",
+    "UserPage",
+    "BulkCreateRequest",
+    "BulkCreateResponse",
+    "ResetPasswordRequest",
+    "ResetPasswordResponse",
+    "CleanupResponse",
 )
 
 
@@ -113,7 +133,7 @@ def test_write_operations_document_the_request_body(client: TestClient) -> None:
     for path, method, operation in _operations(spec):
         if method != "post":
             continue
-        if path == "/api/v1/auth/guest":
+        if path in {"/api/v1/auth/guest", "/api/v1/admin/users/cleanup"}:
             assert "requestBody" not in operation
             continue
         assert operation.get("requestBody"), f"POST {path} sem requestBody"

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from app.ai.factory import (
+    _REGISTRY,
     PROVIDER_LABELS,
     ProviderBuilder,
-    _REGISTRY,
     available_providers,
     build_provider,
     build_registry,
@@ -17,8 +17,8 @@ from app.ai.factory import (
 
 __all__ = [
     "PROVIDER_LABELS",
-    "ProviderBuilder",
     "_REGISTRY",
+    "ProviderBuilder",
     "available_providers",
     "build_provider",
     "build_registry",

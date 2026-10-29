@@ -78,9 +78,7 @@ class ChatRequest(BaseModel):
         default=None,
         min_length=1,
         max_length=256,
-        description=(
-            "Model ID `provider/model` ou alias. Omitido, usa `AI_DEFAULT_MODEL`."
-        ),
+        description=("Model ID `provider/model` ou alias. Omitido, usa `AI_DEFAULT_MODEL`."),
     )
     tools: list[ToolDefinition] | None = Field(
         default=None,

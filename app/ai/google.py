@@ -323,6 +323,7 @@ class GoogleProvider:
 
     def _parse_generation(self, data: object) -> GenerationResult:
         candidate = _first_candidate(data)
+        assert candidate is not None  # `required=True` garante candidato ou exceção
         content = candidate.get("content")
         parts = content.get("parts") if isinstance(content, dict) else None
         if not isinstance(parts, list):
@@ -448,15 +449,19 @@ def _first_candidate(data: object, *, required: bool = True) -> dict[str, Any] |
 
 
 def _pending_calls(pending: dict[int, dict[str, Any]]) -> tuple[ToolCall, ...]:
-    return tuple(
-        ToolCall(
-            id=str(slot.get("id") or f"call_{index}"),
-            name=str(slot.get("name") or ""),
-            arguments=slot.get("arguments") if isinstance(slot.get("arguments"), dict) else {},
+    calls: list[ToolCall] = []
+    for index, slot in sorted(pending.items()):
+        if not slot.get("name"):
+            continue
+        arguments = slot.get("arguments")
+        calls.append(
+            ToolCall(
+                id=str(slot.get("id") or f"call_{index}"),
+                name=str(slot.get("name") or ""),
+                arguments=arguments if isinstance(arguments, dict) else {},
+            )
         )
-        for index, slot in sorted(pending.items())
-        if slot.get("name")
-    )
+    return tuple(calls)
 
 
 def parse_models(data: object) -> list[ModelInfo]:

@@ -12,12 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.ai import AIProvider, build_registry, provider_label
 from app.ai.router import ProviderRouter
-from app.api import admin, auth, chat, models, system, usage
+from app.api import admin, auth, chat, models, system, usage, users
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
 from app.core.clock import Clock, SystemClock
 from app.core.errors import register_exception_handlers
-from app.core.logging import configure_logging
+from app.core.logging import configure_logging, get_logger
 from app.core.middleware import (
     BodyLimitMiddleware,
     ContentTypeMiddleware,
@@ -26,6 +26,15 @@ from app.core.middleware import (
 from app.core.rate_limit import SlidingWindowLimiter
 from app.core.stats import UsageStats
 from app.core.usage_store import InMemoryUsageStore
+from app.core.users import UserService
+from app.db.connection import Database, DatabaseIntegrityError, DatabaseUnavailableError
+from app.db.migrations import (
+    AdminSeedError,
+    AdminVerificationError,
+    MigrationError,
+    bootstrap_database,
+)
+from app.db.repository import UserRepository
 
 EXPOSED_HEADERS = [
     "X-RateLimit-Limit",
@@ -39,16 +48,19 @@ EXPOSED_HEADERS = [
 ALLOWED_HEADERS = ["Authorization", "Content-Type", "X-Request-ID"]
 ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 
+logger = get_logger("nexa.app")
+
 DESCRIPTION = """
 API do chat de IA via web, conforme o SRS v2.0.
 
-- Autenticação por JWT (`admin` e `guest`).
+- Autenticação por JWT (`admin`, `user` e `guest`).
+- Usuários de teste em SQLite, com ADMIN permanente/inviolável.
 - Chat com resposta JSON ou streaming SSE.
 - Gateway multi-provedor (Ollama, OpenAI, Anthropic, Gemini e OpenAI-compatible).
 - Catálogo agregado de modelos (`/models`) e seleção por Model ID.
 - Camadas de compatibilidade OpenAI, Anthropic (Claude Code) e Ollama.
-- Cotas em memória por convidado e por IP.
-- Administração: estatísticas, status dos provedores, guests e reset de cota.
+- Cotas em memória por convidado, IP e usuário de teste.
+- Administração: estatísticas, provedores, guests, usuários e reset de cota.
 - Erros no padrão Problem Details (`application/problem+json`).
 """
 
@@ -67,6 +79,8 @@ def create_app(
     resolved = settings or get_settings()
     resolved_clock = clock or SystemClock()
     usage_store = InMemoryUsageStore(resolved, resolved_clock)
+    user_service = UserService(resolved, resolved_clock)
+    database = Database(resolved)
     configure_logging(resolved.log_level)
 
     if provider is not None:
@@ -95,9 +109,24 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await usage_store.start()
         try:
+            try:
+                await database.open()
+                await bootstrap_database(database, resolved, resolved_clock)
+            except (DatabaseUnavailableError, DatabaseIntegrityError) as exc:
+                # CA-40/RNF-CON-07: o admin continua autenticando pela configuração.
+                logger.error("database_unavailable", reason=str(exc))
+                await database.aclose()
+            except (MigrationError, AdminSeedError, AdminVerificationError):
+                await database.aclose()
+                raise
+            else:
+                user_service.attach(UserRepository(database))
+                await user_service.start()
             yield
         finally:
+            await user_service.aclose()
             await usage_store.aclose()
+            await database.aclose()
 
     app = FastAPI(
         title="Nexa API",
@@ -122,7 +151,9 @@ def create_app(
         resolved_clock,
         retention_seconds=resolved.guest_token_expire_hours * 3600,
     )
-    app.state.auth_service = AuthService(resolved, resolved_clock)
+    app.state.auth_service = AuthService(resolved, resolved_clock, user_service)
+    app.state.user_service = user_service
+    app.state.database = database
     app.state.login_limiter = SlidingWindowLimiter(
         resolved_clock,
         limit=resolved.login_max_attempts,
@@ -160,6 +191,7 @@ def create_app(
     app.include_router(chat.router)
     app.include_router(models.router)
     app.include_router(admin.router)
+    app.include_router(users.router)
     return app
 
 

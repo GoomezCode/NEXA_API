@@ -35,9 +35,21 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
     "token_expired": ErrorSpec(401, "Não autorizado", "O token expirou."),
     "invalid_token": ErrorSpec(401, "Não autorizado", "Token ausente ou inválido."),
     "forbidden": ErrorSpec(403, "Acesso negado", "Você não tem permissão para este recurso."),
+    "test_users_disabled": ErrorSpec(
+        403, "Usuários de teste desabilitados", "A criação de usuários de teste está desabilitada."
+    ),
     "not_found": ErrorSpec(404, "Não encontrado", "O recurso solicitado não existe."),
     "method_not_allowed": ErrorSpec(
         405, "Método não permitido", "O método HTTP não é suportado por este recurso."
+    ),
+    "admin_protected": ErrorSpec(
+        409, "Administrador protegido", "O administrador não pode ser alterado nem removido."
+    ),
+    "username_conflict": ErrorSpec(
+        409, "Usuário já existe", "O username ou e-mail informado já está em uso."
+    ),
+    "user_not_deletable": ErrorSpec(
+        409, "Usuário não removível", "Somente usuários de teste podem ser excluídos."
     ),
     "payload_too_large": ErrorSpec(
         413, "Corpo muito grande", "O corpo da requisição excede o limite permitido."
@@ -61,6 +73,9 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
     "guest_daily_limit_reached": ErrorSpec(
         429, "Limite diário excedido", "A cota diária de mensagens foi atingida."
     ),
+    "user_daily_limit_reached": ErrorSpec(
+        429, "Limite diário excedido", "A cota diária de mensagens do usuário foi atingida."
+    ),
     "ip_daily_limit_reached": ErrorSpec(
         429, "Limite diário excedido", "A cota diária de mensagens deste local/rede foi atingida."
     ),
@@ -76,6 +91,9 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
     ),
     "provider_unavailable": ErrorSpec(
         503, "Serviço indisponível", "O provedor de IA não está disponível."
+    ),
+    "database_unavailable": ErrorSpec(
+        503, "Banco indisponível", "O banco de usuários não está disponível."
     ),
     "ai_provider_timeout": ErrorSpec(
         504, "Timeout do provedor de IA", "O provedor de IA não respondeu a tempo."

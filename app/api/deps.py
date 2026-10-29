@@ -24,6 +24,9 @@ class CurrentUser:
 
     subject: str
     role: Role
+    user_id: str | None = None
+    daily_message_limit: int | None = None
+    rate_per_min: int | None = None
 
 
 def _bearer_token(request: Request) -> str:
@@ -37,24 +40,39 @@ def _bearer_token(request: Request) -> str:
     return token
 
 
-def get_current_user(
+async def get_current_user(
     request: Request,
     _credentials: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
 ) -> CurrentUser:
     """Valida o token Bearer e devolve o usuário autenticado.
 
-    O esquema `HTTPBearer` é declarado apenas para documentar a autenticação no
-    OpenAPI (CA-17); a validação real é feita abaixo, com os erros do catálogo.
+    O admin usa apenas a configuração (RF-USR-03); usuários de teste são
+    revalidados no SQLite para que desativação/expiração invalidem o token
+    na próxima requisição (RF-USR-14).
     """
     settings: Settings = request.app.state.settings
     clock: Clock = request.app.state.clock
     token = _bearer_token(request)
     payload = decode_access_token(token, settings, now=clock.now())
+
+    if payload.role == "user":
+        users = getattr(request.app.state, "user_service", None)
+        if users is None:
+            raise ApiError("invalid_token")
+        row = await users.resolve_token(payload.subject)
+        return CurrentUser(
+            subject=row.id,
+            role="user",
+            user_id=row.id,
+            daily_message_limit=row.daily_message_limit,
+            rate_per_min=row.rate_per_min,
+        )
+
     return CurrentUser(subject=payload.subject, role=payload.role)
 
 
 def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-    """Restringe a rota ao papel `admin`; guest recebe `403`."""
+    """Restringe a rota ao papel `admin`; guest/usuário recebem `403`."""
     if user.role != "admin":
         raise ApiError("forbidden")
     return user

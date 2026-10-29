@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-ResetScope = Literal["gid", "ip"]
+ResetScope = Literal["gid", "ip", "uid"]
 
 
 def _iso_utc(value: datetime) -> str:
@@ -148,11 +148,11 @@ class ResetRequest(BaseModel):
         },
     )
 
-    scope: ResetScope = Field(description="Alvo do reset: `gid` ou `ip`.")
+    scope: ResetScope = Field(description="Alvo do reset: `gid`, `ip` ou `uid`.")
     value: str = Field(
         min_length=1,
         max_length=256,
-        description="`gid` ou IP cuja cota diária será zerada.",
+        description="`gid`, IP ou `uid` cuja cota diária será zerada.",
     )
 
 

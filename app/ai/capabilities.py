@@ -76,9 +76,7 @@ def merge_capabilities(
         tools=adapter.tools and model_caps.tools,
         vision=adapter.vision and model_caps.vision,
         json_mode=adapter.json_mode and model_caps.json_mode,
-        context_window=model.context_window
-        or model_caps.context_window
-        or adapter.context_window,
+        context_window=model.context_window or model_caps.context_window or adapter.context_window,
     )
 
 

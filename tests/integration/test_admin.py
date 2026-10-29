@@ -152,7 +152,9 @@ def test_ai_status_reports_provider_without_secrets(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("failure", ["unhealthy", "raises"])
-def test_ai_status_reports_unavailable(client: TestClient, provider: FakeProvider, failure: str) -> None:
+def test_ai_status_reports_unavailable(
+    client: TestClient, provider: FakeProvider, failure: str
+) -> None:
     token = _admin_token(client)
     if failure == "unhealthy":
         provider.healthy = False

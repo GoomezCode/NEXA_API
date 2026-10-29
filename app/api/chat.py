@@ -113,14 +113,20 @@ def _consume_or_raise(
 
 async def _quota_headers(store: UsageStore, *, user: CurrentUser, ip: str) -> dict[str, str]:
     """Cabeçalhos de cota do estado atual (vazio para admin)."""
-    usage = await store.snapshot(role=user.role, subject=user.subject, ip=ip)
+    usage = await store.snapshot(
+        role=user.role,
+        subject=user.subject,
+        ip=ip,
+        daily_limit=user.daily_message_limit,
+        rate_limit=user.rate_per_min,
+    )
     return rate_limit_headers(usage)
 
 
 async def _request_quota_headers(request: Request) -> dict[str, str]:
     """Cota do chamador a partir do token; vazio se não houver identidade."""
     try:
-        user = get_current_user(request)
+        user = await get_current_user(request)
     except ApiError:
         return {}
     settings = cast(Settings, request.app.state.settings)
@@ -244,7 +250,13 @@ async def chat(
     # Validar o modelo antes de consumir cota: escolha inválida não debita uso.
     resolution = await _resolve_model(payload, request, user=user, store=store, ip=ip)
 
-    decision = await store.consume(role=user.role, subject=user.subject, ip=ip)
+    decision = await store.consume(
+        role=user.role,
+        subject=user.subject,
+        ip=ip,
+        daily_limit=user.daily_message_limit,
+        rate_limit=user.rate_per_min,
+    )
     if not decision.allowed:
         stats.record_rate_limited()
         # RNF-OBS-04: limite atingido é evento de segurança auditável em log.

@@ -11,7 +11,7 @@
 | **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v2.0) |
 | **Escopo** | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
-| **Estado** | **Concluído** - F12 implementado em 29/10/2026. Próxima: F13 (SQLite de usuários). |
+| **Estado** | **Concluído** - F13 implementado em 29/10/2026. Próxima: F14 (compatibilidade OpenAI). |
 
 ### Histórico de revisões
 
@@ -547,14 +547,14 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] `db/connection.py`: `aiosqlite`, WAL, `synchronous=NORMAL`, `busy_timeout`, cache, mmap, `foreign_keys`, pool de leitura e escrita serializada.
-- [ ] Migrações `001_users.sql` e `002_indexes.sql`, com `schema_migrations`, backup e rollback em falha.
-- [ ] `UserRepository`: `get_by_username`, `get_by_id`, `create`, `create_many`, `update`, `delete_test_user`, `list` (cursor), `cleanup_expired`, `stats`.
-- [ ] Seed do admin com ID fixo, `is_protected=1`, triggers de proteção e verificação pós-migração.
-- [ ] `AuthService`: admin via config (fallback) + usuários de teste via repositório; cache TTL e invalidação.
-- [ ] Endpoints `/admin/users*`: criar, criar em lote, listar, consultar, atualizar, resetar senha, excluir e limpar expirados.
-- [ ] `GET /admin/db/status`, backup e rotina de limpeza agendada.
-- [ ] Benchmarks: 10 mil usuários, leitura p95 ≤ 2 ms, listagem p95 ≤ 20 ms, escrita p95 ≤ 10 ms; `EXPLAIN QUERY PLAN` coberto por teste.
+- [x] `db/connection.py`: `aiosqlite`, WAL, `synchronous=NORMAL`, `busy_timeout`, cache, mmap, `foreign_keys`, pool de leitura e escrita serializada.
+- [x] Migrações `001_users.sql` e `002_indexes.sql`, com `schema_migrations`, backup e rollback em falha.
+- [x] `UserRepository`: `get_by_username`, `get_by_id`, `create`, `create_many`, `update`, `delete_test_user`, `list` (cursor), `cleanup_expired`, `stats`.
+- [x] Seed do admin com ID fixo, `is_protected=1`, triggers de proteção e verificação pós-migração.
+- [x] `AuthService`: admin via config (fallback) + usuários de teste via repositório; cache TTL e invalidação.
+- [x] Endpoints `/admin/users*`: criar, criar em lote, listar, consultar, atualizar, resetar senha, excluir e limpar expirados.
+- [x] `GET /admin/db/status`, backup e rotina de limpeza agendada.
+- [x] Benchmarks: 10 mil usuários, leitura p95 ≤ 2 ms, listagem p95 ≤ 20 ms, escrita p95 ≤ 10 ms; `EXPLAIN QUERY PLAN` coberto por teste.
 
 **Testes:** admin sobrevive a banco removido/corrompido; triggers bloqueiam delete/update; criação/lote/login/desativação/exclusão; limpeza não toca no admin; cache invalida; migração preserva admin; benchmark e plano de consulta.
 

@@ -28,6 +28,10 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=nexa:nexa app ./app
 
+# Volume persistente do SQLite (`/app/data/nexa.db`); o diretório precisa
+# pertencer ao usuário sem privilégios para o WAL e os backups funcionarem.
+RUN mkdir -p /app/data && chown nexa:nexa /app/data
+
 USER 10001:10001
 EXPOSE 8000
 

@@ -178,6 +178,97 @@ def test_invalid_ollama_url_is_rejected() -> None:
         make_settings(ollama_url="localhost:11434")
 
 
+def test_deprecated_ai_provider_ollama_maps_to_default_model() -> None:
+    settings = make_settings(ai_provider="ollama", ollama_model="qwen3")
+
+    assert settings.ai_default_model == "ollama/qwen3"
+
+
+def test_deprecated_ai_provider_rejects_unknown_values() -> None:
+    with pytest.raises(ValidationError, match="AI_PROVIDER deve ser"):
+        make_settings(ai_provider="openai")
+
+
+def test_deprecated_cloud_rejects_unknown_provider() -> None:
+    with pytest.raises(ValidationError, match="CLOUD_PROVIDER desconhecido"):
+        make_settings(ai_provider="cloud", cloud_provider="acme", cloud_model="modelo")
+
+
+@pytest.mark.parametrize(
+    ("provider", "attribute"),
+    [
+        ("anthropic", "anthropic_api_key_value"),
+        ("google", "google_api_key_value"),
+    ],
+)
+def test_deprecated_cloud_api_key_is_forwarded(provider: str, attribute: str) -> None:
+    settings = make_settings(
+        ai_provider="cloud",
+        cloud_provider=provider,
+        cloud_model="modelo",
+        cloud_api_key="chave-legada",
+    )
+
+    assert getattr(settings, attribute) == "chave-legada"
+
+
+def test_model_aliases_are_parsed_and_validated() -> None:
+    assert make_settings(ai_model_aliases='{"fast": "ollama/llama3.1"}').ai_model_aliases == {
+        "fast": "ollama/llama3.1"
+    }
+    assert make_settings(ai_model_aliases="   ").ai_model_aliases == {}
+
+    for invalid in ("{nao-json", '{"fast": 1}', '{" ": "ollama/llama3.1"}'):
+        with pytest.raises(ValidationError):
+            make_settings(ai_model_aliases=invalid)
+
+
+def test_default_model_shape_is_validated() -> None:
+    for invalid in ("   ", "acme/modelo", "ollama/   "):
+        with pytest.raises(ValidationError):
+            make_settings(ai_default_model=invalid)
+
+
+def test_unknown_enabled_provider_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="AI_ENABLED_PROVIDERS"):
+        make_settings(ai_enabled_providers="ollama,acme")
+
+
+def test_default_model_must_be_enabled() -> None:
+    with pytest.raises(ValidationError, match="não está em AI_ENABLED_PROVIDERS"):
+        make_settings(ai_default_model="ollama/llama3.1", ai_enabled_providers="openai")
+
+
+def test_fallback_and_alias_providers_must_be_known() -> None:
+    with pytest.raises(ValidationError, match="AI_FALLBACK_CHAIN"):
+        make_settings(ai_fallback_chain="acme/modelo")
+    with pytest.raises(ValidationError, match="AI_MODEL_ALIASES"):
+        make_settings(ai_model_aliases='{"fast": "acme/modelo"}')
+
+
+def test_database_url_and_backup_dir_are_validated() -> None:
+    for invalid in ("postgres://host/db", "sqlite:///", "sqlite:///:memory:"):
+        with pytest.raises(ValidationError, match="DATABASE_URL"):
+            make_settings(database_url=invalid)
+    with pytest.raises(ValidationError, match="DB_BACKUP_DIR"):
+        make_settings(db_backup_dir="   ")
+
+
+def test_provider_urls_must_use_http() -> None:
+    with pytest.raises(ValidationError, match="OPENAI_COMPAT_BASE_URL"):
+        make_settings(openai_compat_base_url="ftp://exemplo")
+    with pytest.raises(ValidationError, match="CLOUD_BASE_URL"):
+        make_settings(cloud_base_url="exemplo.com")
+
+
+def test_deprecated_api_key_accessors() -> None:
+    settings = make_settings(openai_compat_api_key="compat", cloud_api_key="nuvem")
+
+    assert settings.openai_compat_api_key_value == "compat"
+    assert settings.cloud_api_key_value == "nuvem"
+    assert settings.ollama_cloud_api_key_value is None
+
+
 def test_get_settings_reads_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     get_settings.cache_clear()
     monkeypatch.setenv("ADMIN_USERNAME", "root")

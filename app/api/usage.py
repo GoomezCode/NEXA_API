@@ -32,7 +32,13 @@ async def get_usage(
     settings = cast(Settings, request.app.state.settings)
     store = cast(UsageStore, request.app.state.usage_store)
     ip = get_client_ip(request, settings.trusted_proxies)
-    usage = await store.snapshot(role=user.role, subject=user.subject, ip=ip)
+    usage = await store.snapshot(
+        role=user.role,
+        subject=user.subject,
+        ip=ip,
+        daily_limit=user.daily_message_limit,
+        rate_limit=user.rate_per_min,
+    )
     return UsageResponse(role=user.role, **usage.model_dump())
 
 

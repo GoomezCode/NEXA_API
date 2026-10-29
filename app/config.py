@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -34,6 +35,10 @@ _WEAK_SECRETS = frozenset(
 MIN_JWT_SECRET_BYTES = 32
 DEFAULT_MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024
 DEFAULT_AI_DEFAULT_MODEL = "ollama/llama3.1"
+DEFAULT_DATABASE_URL = "sqlite:///./data/nexa.db"
+
+#: Prefixo aceito para o SQLite (RF-USR-01, RD-01).
+SQLITE_URL_PREFIX = "sqlite:///"
 
 #: Provedores conhecidos pelo registry (RF-GTW-01).
 KNOWN_PROVIDERS = frozenset(
@@ -154,6 +159,26 @@ class Settings(BaseSettings):
     # --- Redis (opcional) ---------------------------------------------------
     redis_url: str | None = None
 
+    # --- SQLite de usuários (v2.0) -----------------------------------------
+    database_url: str = DEFAULT_DATABASE_URL
+    sqlite_wal: bool = True
+    sqlite_synchronous: Literal["NORMAL", "FULL"] = "NORMAL"
+    sqlite_busy_timeout_ms: int = Field(default=5000, ge=0)
+    sqlite_cache_size_kb: int = Field(default=65536, ge=0)
+    sqlite_mmap_bytes: int = Field(default=268435456, ge=0)
+    sqlite_read_pool_size: int = Field(default=4, ge=1, le=32)
+    users_cache_ttl_seconds: float = Field(default=30.0, ge=0)
+    users_cache_max_entries: int = Field(default=10000, ge=1)
+    allow_test_users: bool = True
+    test_user_default_daily_messages: int = Field(default=100, ge=0)
+    test_user_default_rate_per_min: int = Field(default=10, ge=1)
+    test_user_ttl_hours: int = Field(default=168, ge=0)
+    test_user_max_bulk: int = Field(default=100, ge=1, le=1000)
+    db_backup_before_migration: bool = True
+    db_backup_dir: str = "./data/backups"
+    db_startup_check: Literal["quick", "full", "off"] = "quick"
+    db_optimize_on_shutdown: bool = True
+
     # --- Validadores de campo ----------------------------------------------
     @field_validator("admin_username")
     @classmethod
@@ -257,6 +282,7 @@ class Settings(BaseSettings):
         self._check_workers()
         self._check_body_limit()
         self._check_ai()
+        self._check_database()
         self._check_urls()
         return self
 
@@ -341,9 +367,7 @@ class Settings(BaseSettings):
             if "/" in expanded:
                 provider = expanded.partition("/")[0]
                 if provider not in KNOWN_PROVIDERS:
-                    raise ValueError(
-                        f"AI_FALLBACK_CHAIN contém provedor desconhecido: {provider}"
-                    )
+                    raise ValueError(f"AI_FALLBACK_CHAIN contém provedor desconhecido: {provider}")
 
         for alias, model_id in self.ai_model_aliases.items():
             if "/" in model_id:
@@ -370,7 +394,25 @@ class Settings(BaseSettings):
             if not url.startswith(("http://", "https://")):
                 raise ValueError(f"{name} deve começar com http:// ou https://")
 
+    def _check_database(self) -> None:
+        value = self.database_url.strip()
+        if not value.startswith(SQLITE_URL_PREFIX):
+            raise ValueError("DATABASE_URL deve começar com sqlite:///")
+        path = value[len(SQLITE_URL_PREFIX) :].strip()
+        if not path:
+            raise ValueError("DATABASE_URL deve incluir o caminho do arquivo SQLite")
+        if path == ":memory:":
+            raise ValueError("DATABASE_URL não aceita banco em memória (use um arquivo)")
+        if not self.db_backup_dir.strip():
+            raise ValueError("DB_BACKUP_DIR não pode ser vazio")
+        self.database_url = f"{SQLITE_URL_PREFIX}{path}"
+
     # --- Acessores ----------------------------------------------------------
+    @property
+    def database_path(self) -> Path:
+        """Caminho do arquivo SQLite derivado de `DATABASE_URL`."""
+        return Path(self.database_url[len(SQLITE_URL_PREFIX) :]).expanduser()
+
     @property
     def jwt_secret_value(self) -> str:
         return self.jwt_secret.get_secret_value()
@@ -425,7 +467,9 @@ def get_settings() -> Settings:
 
 __all__ = [
     "DEFAULT_AI_DEFAULT_MODEL",
+    "DEFAULT_DATABASE_URL",
     "KNOWN_PROVIDERS",
+    "SQLITE_URL_PREFIX",
     "Settings",
     "get_settings",
 ]

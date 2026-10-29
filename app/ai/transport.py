@@ -41,7 +41,7 @@ async def post_json(
     payload: dict[str, Any],
     *,
     headers: dict[str, str] | None = None,
-    timeout: float,
+    timeout: float,  # noqa: ASYNC109 - timeout por requisição faz parte do contrato
     max_seconds: float | None = None,
     label: str = "provedor",
 ) -> Any:
@@ -51,11 +51,13 @@ async def post_json(
     `finish_reason = timeout`.
     """
     try:
-        async with timeout_scope(max_seconds):
-            async with httpx.AsyncClient(timeout=_timeout(timeout)) as client:
-                response = await client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                return response.json()
+        async with (
+            timeout_scope(max_seconds),
+            httpx.AsyncClient(timeout=_timeout(timeout)) as client,
+        ):
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            return response.json()
     except httpx.TimeoutException as exc:
         raise ProviderTimeout(f"{label} não respondeu a tempo.") from exc
     except httpx.HTTPStatusError as exc:
@@ -70,7 +72,7 @@ async def get_json(
     url: str,
     *,
     headers: dict[str, str] | None = None,
-    timeout: float,
+    timeout: float,  # noqa: ASYNC109 - timeout por requisição faz parte do contrato
     label: str = "provedor",
 ) -> Any:
     """`GET` com JSON; mesmas normalizações de `post_json`."""
@@ -93,14 +95,16 @@ async def is_available(
     url: str,
     *,
     headers: dict[str, str] | None = None,
-    timeout: float = HEALTH_TIMEOUT_SECONDS,
+    timeout: float = HEALTH_TIMEOUT_SECONDS,  # noqa: ASYNC109 - timeout por requisição
 ) -> bool:
     """Health check leve: `True` apenas para `2xx`."""
     try:
-        async with timeout_scope(timeout):
-            async with httpx.AsyncClient(timeout=_timeout(timeout)) as client:
-                response = await client.get(url, headers=headers)
-                return response.status_code == 200
+        async with (
+            timeout_scope(timeout),
+            httpx.AsyncClient(timeout=_timeout(timeout)) as client,
+        ):
+            response = await client.get(url, headers=headers)
+            return response.status_code == 200
     except (TimeoutError, httpx.HTTPError, ValueError):
         return False
 

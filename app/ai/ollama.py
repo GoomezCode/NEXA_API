@@ -425,4 +425,3 @@ def parse_tool_calls(raw: object) -> tuple[ToolCall, ...]:
 
 
 __all__ = ["OllamaProvider", "map_finish_reason", "parse_models", "parse_tool_calls"]
-

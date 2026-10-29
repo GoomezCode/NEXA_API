@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -32,8 +33,15 @@ BASE_SETTINGS: dict[str, object] = {
 
 
 def make_settings(**overrides: object) -> Settings:
-    """Settings isolado do ambiente e do `.env`."""
-    return Settings(**{**BASE_SETTINGS, **overrides})
+    """Settings isolado do ambiente e do `.env` (banco/backup temporários por chamada)."""
+    directory = tempfile.mkdtemp(prefix="nexa-test-db-")
+    values: dict[str, object] = {
+        **BASE_SETTINGS,
+        "database_url": f"sqlite:///{directory}/nexa.db",
+        "db_backup_dir": f"{directory}/backups",
+        **overrides,
+    }
+    return Settings(**values)
 
 
 class FakeClock:

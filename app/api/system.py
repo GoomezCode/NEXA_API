@@ -11,7 +11,13 @@ from fastapi.responses import JSONResponse
 from app import __version__
 from app.ai.router import ProviderRouter
 from app.core.errors import request_id_of
-from app.schemas.system import HealthResponse, ProviderReadiness, ReadinessResponse
+from app.db.connection import Database, DatabaseError
+from app.schemas.system import (
+    DbHealthResponse,
+    HealthResponse,
+    ProviderReadiness,
+    ReadinessResponse,
+)
 
 router = APIRouter(tags=["Sistema"])
 
@@ -26,6 +32,39 @@ AiHealthCheck = Callable[[], Awaitable[bool]]
 )
 async def health(request: Request) -> HealthResponse:
     return HealthResponse(version=__version__, request_id=request_id_of(request))
+
+
+@router.get(
+    "/health/db",
+    response_model=DbHealthResponse,
+    summary="Saúde do SQLite",
+    description="Verifica o banco de usuários, o modo WAL e a versão de migração aplicada.",
+    responses={status.HTTP_503_SERVICE_UNAVAILABLE: {"model": DbHealthResponse}},
+)
+async def database_health(request: Request) -> Response:
+    database: Database | None = getattr(request.app.state, "database", None)
+    healthy = False
+    wal: bool | None = None
+    version: int | None = None
+    if database is not None and database.is_open:
+        try:
+            healthy = await database.ping()
+            if healthy:
+                wal = (await database.journal_mode()) == "wal"
+                version = await database.migration_version()
+        except DatabaseError:
+            healthy = False
+    body = DbHealthResponse(
+        status="ok" if healthy else "unavailable",
+        wal=wal,
+        migration_version=version,
+        request_id=request_id_of(request),
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK if healthy else status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=body.model_dump(),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get(
@@ -71,10 +110,20 @@ async def readiness(request: Request) -> Response:
         )
 
     healthy = all(item.available for item in providers)
+    database: Database | None = getattr(state, "database", None)
+    database_status: str | None = None
+    if database is not None:
+        try:
+            database_status = "ok" if await database.ping() else "unavailable"
+        except DatabaseError:
+            database_status = "unavailable"
+        if database_status != "ok":
+            healthy = False
     body = ReadinessResponse(
         status="ok" if healthy else "unavailable",
         provider=cast(str | None, getattr(state, "ai_provider_name", None)),
         providers=providers,
+        database=database_status,
         request_id=request_id_of(request),
     )
     if not healthy:

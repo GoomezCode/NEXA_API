@@ -180,19 +180,27 @@ docker compose --profile ollama exec ollama ollama pull llama3.1
 docker compose --profile ollama exec ollama ollama list
 ```
 
-### SQLite na v2.0 (planejado)
+### SQLite na v2.0
 
-Quando a F13 for implementada:
+O SQLite de usuários (fase F13) está implementado. Ele guarda **somente** o
+ADMIN permanente, os usuários de teste e o controle de migrações — nenhum
+conteúdo de chat é persistido.
 
-- o arquivo padrão será `./data/nexa.db`, em volume persistente;
-- o compose deverá montar `./data:/app/data`;
-- o diretório terá permissão `0700` e o arquivo `0600`;
-- o ADMIN será semeado da configuração e protegido por triggers;
-- o backup será feito antes de cada migração em `./data/backups`.
+- o arquivo padrão é `./data/nexa.db`, com diretório `0700` e arquivo `0600`;
+- o compose monta o volume nomeado `nexa-data` em `/app/data`, o único caminho
+gravável da imagem (`read_only: true`);
+- o ADMIN é semeado da configuração e protegido por triggers;
+- o backup é feito antes de cada migração em `./data/backups`.
 
 ```bash
-# backup manual consistente (v2.0)
+# backup manual consistente (desenvolvimento local)
 sqlite3 ./data/nexa.db ".backup './data/backups/nexa-$(date -u +%Y%m%dT%H%M%SZ).db'"
+
+# backup manual consistente (Docker Compose)
+docker compose exec api python -c "import sqlite3; sqlite3.connect('/app/data/nexa.db').execute(\"VACUUM INTO '/app/data/backups/manual.db'\")"
+
+# benchmark do SQLite (10 mil usuários) e metas de p95
+make bench
 ```
 
 ### Shutdown gracioso
@@ -343,9 +351,10 @@ tests/
 F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração, F7 Hardening,
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade e F11 Catálogo de modelos.
 
-**Planejadas (v2.0):** F12 Gateway multi-provedor, F13 SQLite de usuários,
-F14 Compat OpenAI, F15 Compat Anthropic/Claude Code, F16 Compat Ollama e
-F17 Hardening/release `v2.0.0`.
+**Concluídas (v2.0):** F12 Gateway multi-provedor e F13 SQLite de usuários.
+
+**Planejadas (v2.0):** F14 Compat OpenAI, F15 Compat Anthropic/Claude Code,
+F16 Compat Ollama e F17 Hardening/release `v2.0.0`.
 
 ## Release
 

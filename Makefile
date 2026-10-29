@@ -5,7 +5,7 @@ UVICORN := .venv/bin/uvicorn
 
 SHUTDOWN_TIMEOUT_SECONDS ?= 30
 
-.PHONY: setup run test cov lint type fmt check docker-build docker-up docker-up-ollama docker-down clean
+.PHONY: setup run test cov lint type fmt check bench docker-build docker-up docker-up-ollama docker-down clean
 
 setup: ## Cria o venv e instala dependências de desenvolvimento
 	python3 -m venv .venv
@@ -34,6 +34,9 @@ type: ## Tipagem estática
 	.venv/bin/mypy app
 
 check: lint type test ## Pipeline local completo
+
+bench: ## Benchmark do SQLite (10 mil usuários) e metas de p95
+	$(PY) scripts/db_benchmark.py
 
 docker-build: ## Constrói a imagem
 	docker build -t nexa-api .

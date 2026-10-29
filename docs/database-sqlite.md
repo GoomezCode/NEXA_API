@@ -2,7 +2,7 @@
 
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
-> **Estado:** planejado para a fase F13; a API em produção permanece na v1.1.0.
+> **Estado:** implementado na fase F13; a API em produção permanece na v1.1.0.
 
 ## 1. Objetivo e escopo
 
