@@ -10,7 +10,7 @@
 | **Data** | 29/10/2026 |
 | **Padrões de referência** | IEEE Std 830-1998, ISO/IEC/IEEE 29148:2018 |
 | **Documento de origem** | `levantamento-chat-ia-web.md` (documento externo a este repositório) |
-| **Estado** | A API em produção permanece na v1.1.0 até a conclusão das fases F12–F17 do plano v2.0 |
+| **Estado** | **F12 CONCLUIDO** - gateway multi-provedor implementado. Próximas: F13-F17 (SQLite, performance, release v2.0.0). |
 
 ### Histórico de revisões
 
