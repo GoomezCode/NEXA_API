@@ -7,9 +7,8 @@ from typing import cast
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from app.ai.base import AIProvider
+from app.ai.router import ProviderRouter
 from app.api.deps import require_admin
-from app.core.clock import Clock
 from app.core.errors import ApiError
 from app.core.logging import get_logger
 from app.core.stats import UsageStats
@@ -19,6 +18,7 @@ from app.schemas.admin import (
     GuestEntry,
     GuestsResponse,
     IpUsageEntry,
+    ProviderStatus,
     ResetRequest,
     StatsResponse,
 )
@@ -50,26 +50,27 @@ async def get_stats(request: Request) -> StatsResponse:
 @router.get(
     "/ai/status",
     response_model=AiStatusResponse,
-    summary="Status do provedor de IA",
+    summary="Status dos provedores de IA",
     description=(
-        "Informa provedor, modelo e disponibilidade. Chaves e segredos nunca são expostos."
+        "Verifica a saúde de cada provedor habilitado. Chaves e segredos nunca são expostos."
     ),
     responses={status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."}},
 )
 async def ai_status(request: Request) -> AiStatusResponse:
-    provider = cast(AIProvider, request.app.state.ai_provider)
-    clock = cast(Clock, request.app.state.clock)
-
-    try:
-        available = bool(await provider.health())
-    except Exception:
-        available = False
-
+    ai_router = cast(ProviderRouter, request.app.state.ai_router)
+    health = await ai_router.list_health()
     return AiStatusResponse(
-        provider=provider.name,
-        model=provider.model,
-        available=available,
-        checked_at=clock.now(),
+        providers=[
+            ProviderStatus(
+                provider=item.provider,
+                label=item.label,
+                default_model=item.default_model,
+                available=item.available,
+                checked_at=item.checked_at,
+                error=item.error,
+            )
+            for item in health
+        ]
     )
 
 

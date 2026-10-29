@@ -46,6 +46,15 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
         415, "Tipo de mídia não suportado", "Envie o corpo como application/json."
     ),
     "validation_error": ErrorSpec(422, "Requisição inválida", "Um ou mais campos são inválidos."),
+    "model_not_found": ErrorSpec(
+        422, "Modelo não encontrado", "O Model ID informado não existe no provedor."
+    ),
+    "model_not_allowed": ErrorSpec(
+        422, "Modelo não permitido", "O Model ID não é permitido por AI_ALLOWED_MODELS."
+    ),
+    "unsupported_capability": ErrorSpec(
+        422, "Capacidade não suportada", "O modelo escolhido não suporta a capacidade exigida."
+    ),
     "rate_limited": ErrorSpec(
         429, "Limite excedido", "Muitas requisições em pouco tempo. Tente novamente em instantes."
     ),

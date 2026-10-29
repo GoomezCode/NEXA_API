@@ -10,7 +10,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.ai import AIProvider, build_provider
+from app.ai import AIProvider, build_registry, provider_label
+from app.ai.router import ProviderRouter
 from app.api import admin, auth, chat, models, system, usage
 from app.config import Settings, get_settings
 from app.core.auth import AuthService
@@ -22,7 +23,6 @@ from app.core.middleware import (
     ContentTypeMiddleware,
     RequestContextMiddleware,
 )
-from app.core.models import ModelCatalog
 from app.core.rate_limit import SlidingWindowLimiter
 from app.core.stats import UsageStats
 from app.core.usage_store import InMemoryUsageStore
@@ -40,13 +40,15 @@ ALLOWED_HEADERS = ["Authorization", "Content-Type", "X-Request-ID"]
 ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 
 DESCRIPTION = """
-API do chat de IA via web, conforme o SRS v1.2.
+API do chat de IA via web, conforme o SRS v2.0.
 
 - Autenticação por JWT (`admin` e `guest`).
 - Chat com resposta JSON ou streaming SSE.
-- Catálogo de modelos (`/models`) e seleção de modelo por requisição.
+- Gateway multi-provedor (Ollama, OpenAI, Anthropic, Gemini e OpenAI-compatible).
+- Catálogo agregado de modelos (`/models`) e seleção por Model ID.
+- Camadas de compatibilidade OpenAI, Anthropic (Claude Code) e Ollama.
 - Cotas em memória por convidado e por IP.
-- Administração: estatísticas, status do provedor, guests e reset de cota.
+- Administração: estatísticas, status dos provedores, guests e reset de cota.
 - Erros no padrão Problem Details (`application/problem+json`).
 """
 
@@ -60,13 +62,34 @@ def create_app(
     """Cria a aplicação com configuração explícita ou vinda do ambiente.
 
     `provider` permite injetar qualquer implementação de `AIProvider` (testes e
-    CA-15); sem ele, a factory escolhe pelo `AI_PROVIDER` configurado.
+    CA-15); sem ele, o registry constrói todos os provedores habilitados.
     """
     resolved = settings or get_settings()
     resolved_clock = clock or SystemClock()
-    resolved_provider = provider or build_provider(resolved)
     usage_store = InMemoryUsageStore(resolved, resolved_clock)
     configure_logging(resolved.log_level)
+
+    if provider is not None:
+        providers = {provider.name: provider}
+        default_model = f"{provider.name}/{provider.model}"
+        labels = {provider.name: provider.name}
+    else:
+        providers = build_registry(resolved)
+        default_model = resolved.ai_default_model
+        labels = {name: provider_label(name) for name in providers}
+
+    ai_router = ProviderRouter(
+        providers,
+        default_model=default_model,
+        clock=resolved_clock,
+        aliases=resolved.ai_model_aliases,
+        allowed_models=resolved.ai_allowed_models,
+        fallback_chain=resolved.ai_fallback_chain,
+        max_retries=resolved.ai_max_retries,
+        cache_seconds=resolved.models_cache_seconds,
+        labels=labels,
+    )
+    default_provider = ai_router.default_provider
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -86,19 +109,15 @@ def create_app(
         lifespan=lifespan,
     )
 
-    # Estado compartilhado. O chat (F4/F5) consome apenas o contrato `AIProvider`.
+    # Estado compartilhado. O chat (F12+) consome o `ProviderRouter`.
     app.state.settings = resolved
     app.state.clock = resolved_clock
-    app.state.ai_provider = resolved_provider
-    app.state.ai_provider_name = resolved_provider.name
-    app.state.ai_model = resolved_provider.model
-    app.state.ai_health = resolved_provider.health
+    app.state.ai_router = ai_router
+    app.state.ai_provider = default_provider
+    app.state.ai_provider_name = ai_router.default_provider_name
+    app.state.ai_model = default_provider.model
+    app.state.ai_health = ai_router.health
     app.state.usage_store = usage_store
-    app.state.model_catalog = ModelCatalog(
-        resolved_provider,
-        resolved_clock,
-        ttl_seconds=resolved.models_cache_seconds,
-    )
     app.state.stats = UsageStats(
         resolved_clock,
         retention_seconds=resolved.guest_token_expire_hours * 3600,

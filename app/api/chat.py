@@ -10,11 +10,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.ai.base import (
-    AIProvider,
     ChatMessage,
+    GatewayError,
     ProviderError,
+    ToolSpec,
+    UnsupportedCapability,
     provider_error_code,
 )
+from app.ai.router import ProviderRouter, ResolvedModel
 from app.api.deps import CurrentUser, get_current_user
 from app.config import Settings
 from app.core.chat import context_errors
@@ -28,12 +31,17 @@ from app.core.errors import (
 )
 from app.core.ip import get_client_ip
 from app.core.logging import get_logger
-from app.core.models import ModelCatalog, is_model_selectable
 from app.core.sse import SSE_HEADERS
 from app.core.stats import UsageStats
 from app.core.usage import rate_limit_headers
 from app.core.usage_store import UsageDecision, UsageStore
-from app.schemas.chat import AssistantMessage, ChatRequest, ChatResponse
+from app.schemas.chat import (
+    AssistantMessage,
+    ChatRequest,
+    ChatResponse,
+    ProviderUsage,
+    ToolCallOut,
+)
 from app.schemas.usage import UsageInfo
 
 router = APIRouter(prefix="/api/v1", tags=["Chat"])
@@ -48,9 +56,45 @@ def _build_context(payload: ChatRequest, settings: Settings) -> list[ChatMessage
     if settings.default_system_prompt:
         context.append(ChatMessage(role="system", content=settings.default_system_prompt))
     context.extend(
-        ChatMessage(role=message.role, content=message.content) for message in payload.messages
+        ChatMessage(
+            role=message.role,
+            content=message.content,
+            tool_call_id=message.tool_call_id,
+        )
+        for message in payload.messages
     )
     return context
+
+
+def _tool_specs(payload: ChatRequest) -> list[ToolSpec] | None:
+    """Converte as ferramentas do contrato nativo para o formato interno."""
+    if not payload.tools:
+        return None
+    return [
+        ToolSpec(
+            name=tool.function.name,
+            description=tool.function.description,
+            parameters=tool.function.parameters,
+        )
+        for tool in payload.tools
+    ]
+
+
+def _tool_choice(payload: ChatRequest) -> str | None:
+    """Normaliza `tool_choice` para `auto`, `none`, `required` ou nome."""
+    value = payload.tool_choice
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        function = value.get("function")
+        if isinstance(function, dict):
+            name = function.get("name")
+            if isinstance(name, str) and name:
+                return name
+        name = value.get("name")
+        if isinstance(name, str) and name:
+            return name
+    return None
 
 
 def _consume_or_raise(
@@ -97,8 +141,21 @@ async def validation_error_with_quota(request: Request, exc: Exception) -> JSONR
     return response
 
 
-def _provider_error(exc: ProviderError) -> ApiError:
-    return ApiError(error_code(exc))
+def _gateway_api_error(
+    exc: GatewayError,
+    *,
+    headers: dict[str, str],
+) -> ApiError:
+    """Converte erro de gateway em 422 com `errors[]` e sem consumir cota."""
+    field = "model"
+    if isinstance(exc, UnsupportedCapability) and exc.capability == "tools":
+        field = "tools"
+    return ApiError(
+        exc.code,
+        detail=str(exc),
+        errors=[ValidationErrorItem(field=field, reason=str(exc))],
+        headers=headers,
+    )
 
 
 async def _resolve_model(
@@ -108,53 +165,24 @@ async def _resolve_model(
     user: CurrentUser,
     store: UsageStore,
     ip: str,
-) -> str:
-    """Modelo efetivo: o escolhido (validado) ou o padrão do servidor."""
-    provider = cast(AIProvider, request.app.state.ai_provider)
-    if payload.model is None:
-        return provider.model
-
-    settings = cast(Settings, request.app.state.settings)
-    catalog = cast(ModelCatalog, request.app.state.model_catalog)
+) -> ResolvedModel:
+    """Resolve Model ID, allowlist e capacidades antes de consumir cota."""
+    router = cast(ProviderRouter, request.app.state.ai_router)
     headers = await _quota_headers(store, user=user, ip=ip)
+    tools = _tool_specs(payload)
 
     try:
-        resolved = await catalog.resolve(
+        return await router.resolve(
             payload.model,
+            stream=payload.stream,
+            tools=tools,
             request_id=request_id_of(request),
         )
+    except GatewayError as exc:
+        raise _gateway_api_error(exc, headers=headers) from exc
     except ProviderError as exc:
         # Consultar o catálogo não consome cota; o erro real é de disponibilidade.
         raise ApiError(provider_error_code(exc), headers=headers) from exc
-
-    if resolved is None:
-        raise ApiError(
-            "validation_error",
-            errors=[
-                ValidationErrorItem(
-                    field="model",
-                    reason="modelo não instalado no Ollama",
-                )
-            ],
-            headers=headers,
-        )
-
-    if not is_model_selectable(
-        resolved,
-        allowed=settings.ai_allowed_models,
-        default_model=provider.model,
-    ):
-        raise ApiError(
-            "validation_error",
-            errors=[
-                ValidationErrorItem(
-                    field="model",
-                    reason="modelo não permitido pelo servidor",
-                )
-            ],
-            headers=headers,
-        )
-    return resolved
 
 
 @router.post(
@@ -214,7 +242,7 @@ async def chat(
         raise ApiError("validation_error", errors=errors, headers=headers)
 
     # Validar o modelo antes de consumir cota: escolha inválida não debita uso.
-    selected_model = await _resolve_model(payload, request, user=user, store=store, ip=ip)
+    resolution = await _resolve_model(payload, request, user=user, store=store, ip=ip)
 
     decision = await store.consume(role=user.role, subject=user.subject, ip=ip)
     if not decision.allowed:
@@ -228,13 +256,15 @@ async def chat(
         )
     usage = _consume_or_raise(decision)
 
-    provider = cast(AIProvider, request.app.state.ai_provider)
+    router = cast(ProviderRouter, request.app.state.ai_router)
     context = _build_context(payload, settings)
+    tools = _tool_specs(payload)
+    tool_choice = _tool_choice(payload)
 
     if payload.stream:
         # RF-CHAT-03/07: o consumo já ocorreu; o fluxo controla refund e falhas.
         session = StreamSession(
-            provider=provider,
+            provider=resolution.provider,
             messages=context,
             usage=usage,
             store=store,
@@ -246,7 +276,12 @@ async def chat(
             request_id=request_id_of(request),
             idle_timeout_seconds=settings.ai_stream_idle_timeout_seconds,
             stats=stats,
-            model=selected_model,
+            model=resolution.model,
+            router=router,
+            resolution=resolution,
+            model_id=resolution.model_id,
+            tools=tools,
+            tool_choice=tool_choice,
         )
         return StreamingResponse(
             stream_events(session),
@@ -256,12 +291,14 @@ async def chat(
     started = time.perf_counter()
 
     try:
-        result = await provider.generate(
+        routed = await router.generate(
+            resolution,
             context,
             max_tokens=settings.ai_max_output_tokens,
             max_seconds=settings.ai_max_output_seconds,
             request_id=request_id_of(request),
-            model=selected_model,
+            tools=tools,
+            tool_choice=tool_choice,
         )
     except Exception as exc:
         # RF-USO-05/CA-13: nada foi entregue ao cliente, devolve a cota.
@@ -269,27 +306,29 @@ async def chat(
         if isinstance(exc, ProviderError):
             stats.record_provider_error()
             stats.record_duration(time.perf_counter() - started)
-            api_error = _provider_error(exc)
+            api_error = ApiError(error_code(exc))
             # Após o refund, a cota reportada é a efetivamente disponível.
             api_error.headers = await _quota_headers(store, user=user, ip=ip)
             logger.warning(
                 "chat_provider_failed",
                 role=user.role,
-                provider=provider.name,
-                model=selected_model,
+                provider=resolution.provider_name,
+                model=resolution.model,
                 code=api_error.code,
                 duration_ms=round((time.perf_counter() - started) * 1000, 2),
             )
             raise api_error from exc
         raise
 
+    result = routed.result
     duration_ms = round((time.perf_counter() - started) * 1000, 2)
     stats.record_duration(duration_ms / 1000)
     logger.info(
         "chat_completed",
         role=user.role,
-        provider=provider.name,
-        model=selected_model,
+        provider=routed.resolution.provider_name,
+        model=routed.resolution.model,
+        model_id=routed.resolution.model_id,
         finish_reason=result.finish_reason,
         duration_ms=duration_ms,
         prompt_tokens=result.prompt_tokens,
@@ -300,10 +339,25 @@ async def chat(
         response.headers[name] = value
 
     return ChatResponse(
-        message=AssistantMessage(content=result.content),
-        provider=provider.name,
-        model=selected_model,
+        message=AssistantMessage(
+            content=result.content,
+            tool_calls=[
+                ToolCallOut(
+                    id=call.id,
+                    name=call.name,
+                    arguments=dict(call.arguments),
+                )
+                for call in result.tool_calls
+            ],
+        ),
+        provider=routed.resolution.provider_name,
+        model=routed.resolution.model,
+        model_id=routed.resolution.model_id,
         finish_reason=result.finish_reason,
+        provider_usage=ProviderUsage(
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
+        ),
         usage=usage,
     )
 

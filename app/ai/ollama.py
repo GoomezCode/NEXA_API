@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from app.ai.base import (
+    Capabilities,
     ChatMessage,
     FinishReason,
     GenerationChunk,
@@ -19,6 +20,8 @@ from app.ai.base import (
     ProviderError,
     ProviderTimeout,
     ProviderUnavailable,
+    ToolCall,
+    ToolSpec,
 )
 from app.config import Settings
 
@@ -97,16 +100,39 @@ def map_finish_reason(value: object) -> FinishReason:
 
 
 class OllamaProvider:
-    """Implementação do `AIProvider` sobre a API nativa do Ollama."""
+    """Implementação do `AIProvider` sobre a API nativa do Ollama.
 
-    name = "ollama"
+    O mesmo adapter atende o Ollama local e o Ollama Cloud: o que muda é a base
+    URL, a chave (Bearer) e o modelo padrão (RF-GTW-01, F12-05).
+    """
 
-    def __init__(self, settings: Settings) -> None:
+    capabilities = Capabilities(
+        chat=True,
+        stream=True,
+        tools=True,
+        vision=True,
+        json_mode=True,
+        context_window=None,
+    )
+
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        name: str = "ollama",
+        base_url: str | None = None,
+        api_key: str | None = None,
+        default_model: str | None = None,
+    ) -> None:
         self._settings = settings
-        self.model = settings.ollama_model
-        base = settings.ollama_url.rstrip("/")
+        self.name = name
+        self.model = default_model or settings.ollama_model
+        base = (base_url or settings.ollama_url).rstrip("/")
+        self._api_key = api_key
         self._chat_url = f"{base}/api/chat"
         self._tags_url = f"{base}/api/tags"
+        self._show_url = f"{base}/api/show"
+        self._ps_url = f"{base}/api/ps"
 
     async def generate(
         self,
@@ -116,9 +142,16 @@ class OllamaProvider:
         max_seconds: float,
         request_id: str | None = None,
         model: str | None = None,
+        tools: Sequence[ToolSpec] | None = None,
+        tool_choice: str | None = None,
     ) -> GenerationResult:
         payload = self._payload(
-            messages, max_tokens=max_tokens, stream=False, model=model or self.model
+            messages,
+            max_tokens=max_tokens,
+            stream=False,
+            model=model or self.model,
+            tools=tools,
+            tool_choice=tool_choice,
         )
         try:
             async with asyncio.timeout(max_seconds):
@@ -153,9 +186,16 @@ class OllamaProvider:
         max_seconds: float,
         request_id: str | None = None,
         model: str | None = None,
+        tools: Sequence[ToolSpec] | None = None,
+        tool_choice: str | None = None,
     ) -> AsyncIterator[GenerationChunk]:
         payload = self._payload(
-            messages, max_tokens=max_tokens, stream=True, model=model or self.model
+            messages,
+            max_tokens=max_tokens,
+            stream=True,
+            model=model or self.model,
+            tools=tools,
+            tool_choice=tool_choice,
         )
         try:
             async with (
@@ -224,6 +264,15 @@ class OllamaProvider:
             raise ProviderError("Resposta inválida do Ollama.") from exc
         return parse_models(data)
 
+    async def count_tokens(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        model: str | None = None,
+    ) -> int | None:
+        """Ollama não expõe contagem de tokens antes da geração."""
+        return None
+
     def _payload(
         self,
         messages: Sequence[ChatMessage],
@@ -231,18 +280,36 @@ class OllamaProvider:
         max_tokens: int,
         stream: bool,
         model: str,
+        tools: Sequence[ToolSpec] | None = None,
+        tool_choice: str | None = None,
     ) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "model": model,
-            "messages": [{"role": item.role, "content": item.content} for item in messages],
+            "messages": [_message_payload(item) for item in messages],
             "stream": stream,
             "options": {"num_predict": max_tokens},
         }
+        if tools:
+            payload["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description or "",
+                        "parameters": dict(tool.parameters),
+                    },
+                }
+                for tool in tools
+            ]
+        return payload
 
     def _headers(self, request_id: str | None) -> dict[str, str]:
+        headers: dict[str, str] = {}
         if request_id:
-            return {"X-Request-ID": request_id}
-        return {}
+            headers["X-Request-ID"] = request_id
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
 
     def _timeout(self) -> httpx.Timeout:
         total = self._settings.ai_timeout_seconds
@@ -262,11 +329,16 @@ class OllamaProvider:
         if not isinstance(content, str):
             raise ProviderError("Resposta do Ollama sem conteúdo textual.")
 
+        tool_calls = parse_tool_calls(message.get("tool_calls"))
+        finish_reason = map_finish_reason(data.get("done_reason"))
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_use"
         return GenerationResult(
             content=content,
-            finish_reason=map_finish_reason(data.get("done_reason")),
+            finish_reason=finish_reason,
             prompt_tokens=_as_int(data.get("prompt_eval_count")),
             completion_tokens=_as_int(data.get("eval_count")),
+            tool_calls=tool_calls,
         )
 
     def _parse_stream_line(self, line: str) -> tuple[GenerationChunk, bool]:
@@ -282,25 +354,75 @@ class OllamaProvider:
             raise ProviderError(str(error))
 
         content = ""
+        tool_calls: tuple[ToolCall, ...] = ()
         message = data.get("message")
         if isinstance(message, dict):
             raw_content = message.get("content")
             if isinstance(raw_content, str):
                 content = raw_content
+            tool_calls = parse_tool_calls(message.get("tool_calls"))
 
         is_final = data.get("done") is True
         if not is_final:
-            return GenerationChunk(content=content), False
+            return GenerationChunk(content=content, tool_calls=tool_calls), False
 
+        finish_reason = map_finish_reason(data.get("done_reason"))
+        if tool_calls and finish_reason == "stop":
+            finish_reason = "tool_use"
         return (
             GenerationChunk(
                 content=content,
-                finish_reason=map_finish_reason(data.get("done_reason")),
+                finish_reason=finish_reason,
                 prompt_tokens=_as_int(data.get("prompt_eval_count")),
                 completion_tokens=_as_int(data.get("eval_count")),
+                tool_calls=tool_calls,
             ),
             True,
         )
 
 
-__all__ = ["OllamaProvider", "map_finish_reason"]
+def _message_payload(message: ChatMessage) -> dict[str, Any]:
+    """Mensagem no formato do Ollama, incluindo chamadas de ferramenta."""
+    payload: dict[str, Any] = {"role": message.role, "content": message.content}
+    if message.tool_calls:
+        payload["tool_calls"] = [
+            {"function": {"name": call.name, "arguments": dict(call.arguments)}}
+            for call in message.tool_calls
+        ]
+    return payload
+
+
+def parse_tool_calls(raw: object) -> tuple[ToolCall, ...]:
+    """Normaliza `tool_calls` do Ollama; entradas inválidas são ignoradas."""
+    if not isinstance(raw, list):
+        return ()
+    calls: list[ToolCall] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            continue
+        function = item.get("function")
+        if not isinstance(function, dict):
+            continue
+        name = _as_text(function.get("name"))
+        if not name:
+            continue
+        arguments = function.get("arguments")
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except ValueError:
+                arguments = {}
+        if not isinstance(arguments, dict):
+            arguments = {}
+        calls.append(
+            ToolCall(
+                id=_as_text(item.get("id")) or f"call_{index}",
+                name=name,
+                arguments=arguments,
+            )
+        )
+    return tuple(calls)
+
+
+__all__ = ["OllamaProvider", "map_finish_reason", "parse_models", "parse_tool_calls"]
+

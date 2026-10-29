@@ -83,14 +83,26 @@ class ModelCatalog:
         request_id: str | None = None,
     ) -> str | None:
         """Devolve o nome canônico instalado ou `None` se não existir."""
+        model = await self.resolve_with_info(requested, request_id=request_id)
+        return model.name if model is not None else None
+
+    async def resolve_with_info(
+        self,
+        requested: str,
+        *,
+        request_id: str | None = None,
+    ) -> ModelInfo | None:
+        """Devolve o modelo instalado (com metadados) ou `None`."""
         models = await self.list_models(request_id=request_id)
-        names = {model.name for model in models}
-        if requested in names:
-            return requested
+        if requested in {model.name for model in models}:
+            for model in models:
+                if model.name == requested:
+                    return model
         if not _has_tag(requested):
             candidate = f"{requested}:latest"
-            if candidate in names:
-                return candidate
+            for model in models:
+                if model.name == candidate:
+                    return model
         return None
 
     def _fresh(self) -> tuple[ModelInfo, ...] | None:
