@@ -66,10 +66,13 @@ def test_guest_json_chat_success(client: TestClient, provider: FakeProvider) -> 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["message"] == {"role": "assistant", "content": "Olá do fake!"}
+    # Em v2.0, a resposta inclui model_id, provider, finish_reason e provider_usage.
+    assert body["message"] == {"role": "assistant", "content": "Olá do fake!", "tool_calls": []}
     assert body["provider"] == "fake"
     assert body["model"] == "fake-model"
+    assert body["model_id"] == "fake/fake-model"
     assert body["finish_reason"] == "stop"
+    assert body["provider_usage"] == {"prompt_tokens": 11, "completion_tokens": 7}
     assert body["usage"] == {
         "daily_limit": 10,
         "daily_remaining": 9,
@@ -343,7 +346,7 @@ def test_admin_rate_limit_has_retry_after_without_daily_headers(
     [
         (ProviderError("falhou"), 502, "ai_provider_error"),
         (ProviderTimeout("lento"), 504, "ai_provider_timeout"),
-        ("unavailable", 502, "ai_provider_error"),
+        ("unavailable", 503, "provider_unavailable"),
         ("timeout", 504, "ai_provider_timeout"),
     ],
 )
@@ -435,6 +438,8 @@ def test_guest_stream_success(client: TestClient, provider: FakeProvider) -> Non
     assert events[-1].data == {
         "status": "complete",
         "finish_reason": "stop",
+        "model_id": "fake/fake-model",
+        "provider_usage": {"prompt_tokens": 11, "completion_tokens": 7},
         "usage": {
             "daily_limit": 10,
             "daily_remaining": 9,
@@ -535,7 +540,7 @@ def test_stream_error_after_first_chunk_keeps_quota(
     events = parse_sse(response.text)
     assert [event.data["content"] for event in events if event.event is None] == ["Olá"]
     assert events[-1].event == "error"
-    assert events[-1].data["code"] == "ai_provider_error"
+    assert events[-1].data["code"] == "provider_unavailable"
 
     usage = client.get("/api/v1/usage", headers=_auth(token)).json()
     assert usage["daily_remaining"] == 9
@@ -757,7 +762,7 @@ def test_unknown_model_returns_422_without_consuming_quota(
 
     assert response.status_code == 422
     body = response.json()
-    assert body["code"] == "validation_error"
+    assert body["code"] == "model_not_found"
     assert body["errors"][0]["field"] == "model"
     assert response.headers["x-ratelimit-remaining"] == "10"
 

@@ -2,44 +2,54 @@
   "components": {
     "schemas": {
       "AiStatusResponse": {
-        "additionalProperties": false,
-        "description": "Corpo de `GET /admin/ai/status` (nunca expõe chaves).",
-        "example": {
-          "available": true,
-          "checked_at": "2026-10-28T14:30:00Z",
-          "model": "llama3.1",
-          "provider": "ollama"
-        },
+        "type": "object",
+        "description": "Corpo de GET /admin/ai/status (nunca exp\u00f5e chaves).",
         "properties": {
-          "available": {
-            "description": "Resultado da última verificação de saúde.",
-            "title": "Available",
-            "type": "boolean"
-          },
-          "checked_at": {
-            "description": "Instante da verificação, em UTC.",
-            "title": "Checked At",
-            "type": "string"
-          },
-          "model": {
-            "description": "Modelo configurado.",
-            "title": "Model",
-            "type": "string"
-          },
-          "provider": {
-            "description": "Nome do provedor ativo.",
-            "title": "Provider",
-            "type": "string"
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "description": "Nome do provedor no registry."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "R\u00f3tulo humano do provedor."
+                },
+                "default_model": {
+                  "type": "string",
+                  "description": "Modelo padr\u00e3o do provedor."
+                },
+                "available": {
+                  "type": "boolean",
+                  "description": "Resultado da \u00faltima verifica\u00e7\u00e3o de sa\u00fade."
+                },
+                "checked_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Instante da verifica\u00e7\u00e3o, em UTC."
+                },
+                "error": {
+                  "type": "string",
+                  "description": "C\u00f3digo do erro, quando indispon\u00edvel."
+                }
+              },
+              "required": [
+                "provider",
+                "label",
+                "default_model",
+                "available",
+                "checked_at"
+              ]
+            },
+            "description": "Status de cada provedor habilitado."
           }
         },
         "required": [
-          "provider",
-          "model",
-          "available",
-          "checked_at"
-        ],
-        "title": "AiStatusResponse",
-        "type": "object"
+          "providers"
+        ]
       },
       "AssistantMessage": {
         "additionalProperties": false,
@@ -89,7 +99,7 @@
       },
       "ChatRequest": {
         "additionalProperties": false,
-        "description": "Corpo de `POST /chat` (sem `system_prompt` nem parâmetros de geração).",
+        "description": "Corpo de `POST /chat` (sem `system_prompt` nem par\u00c3\u00a2metros de gera\u00c3\u00a7\u00c3\u00a3o).",
         "example": {
           "messages": [
             {
@@ -120,7 +130,7 @@
                 "type": "null"
               }
             ],
-            "description": "Modelo instalado no Ollama para esta requisição. Omitido, usa o modelo padrão do servidor (`OLLAMA_MODEL`).",
+            "description": "Modelo instalado no Ollama para esta requisi\u00c3\u00a7\u00c3\u00a3o. Omitido, usa o modelo padr\u00c3\u00a3o do servidor (`OLLAMA_MODEL`).",
             "title": "Model"
           },
           "stream": {
@@ -191,10 +201,10 @@
       },
       "GuestEntry": {
         "additionalProperties": false,
-        "description": "Guest ativo em memória (RF-ADM-05).",
+        "description": "Guest ativo em mem\u00c3\u00b3ria (RF-ADM-05).",
         "properties": {
           "daily_limit": {
-            "description": "Cota diária do guest.",
+            "description": "Cota di\u00c3\u00a1ria do guest.",
             "title": "Daily Limit",
             "type": "integer"
           },
@@ -209,12 +219,12 @@
             "type": "string"
           },
           "ip": {
-            "description": "IP da última requisição.",
+            "description": "IP da \u00c3\u00baltima requisi\u00c3\u00a7\u00c3\u00a3o.",
             "title": "Ip",
             "type": "string"
           },
           "last_seen_at": {
-            "description": "Última atividade, em UTC.",
+            "description": "\u00c3\u0161ltima atividade, em UTC.",
             "title": "Last Seen At",
             "type": "string"
           }
@@ -231,7 +241,7 @@
       },
       "GuestTokenResponse": {
         "additionalProperties": false,
-        "description": "Resposta da emissão de token de convidado.",
+        "description": "Resposta da emiss\u00c3\u00a3o de token de convidado.",
         "example": {
           "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
           "expires_in": 86400,
@@ -345,7 +355,7 @@
         },
         "properties": {
           "request_id": {
-            "description": "Identificador da requisição (RF-SIS-03).",
+            "description": "Identificador da requisi\u00c3\u00a7\u00c3\u00a3o (RF-SIS-03).",
             "title": "Request Id",
             "type": "string"
           },
@@ -356,7 +366,7 @@
             "type": "string"
           },
           "version": {
-            "description": "Versão da API.",
+            "description": "Vers\u00c3\u00a3o da API.",
             "title": "Version",
             "type": "string"
           }
@@ -370,10 +380,10 @@
       },
       "IpUsageEntry": {
         "additionalProperties": false,
-        "description": "Uso diário agregado por IP.",
+        "description": "Uso di\u00c3\u00a1rio agregado por IP.",
         "properties": {
           "daily_limit": {
-            "description": "Cota diária por IP.",
+            "description": "Cota di\u00c3\u00a1ria por IP.",
             "title": "Daily Limit",
             "type": "integer"
           },
@@ -437,7 +447,7 @@
                 "type": "null"
               }
             ],
-            "description": "Família do modelo.",
+            "description": "Fam\u00c3\u00adlia do modelo.",
             "title": "Family"
           },
           "modified_at": {
@@ -449,7 +459,7 @@
                 "type": "null"
               }
             ],
-            "description": "Última modificação, em UTC.",
+            "description": "\u00c3\u0161ltima modifica\u00c3\u00a7\u00c3\u00a3o, em UTC.",
             "title": "Modified At"
           },
           "name": {
@@ -466,7 +476,7 @@
                 "type": "null"
               }
             ],
-            "description": "Quantidade de parâmetros (ex.: `8.0B`).",
+            "description": "Quantidade de par\u00c3\u00a2metros (ex.: `8.0B`).",
             "title": "Parameter Size"
           },
           "quantization_level": {
@@ -478,7 +488,7 @@
                 "type": "null"
               }
             ],
-            "description": "Quantização (ex.: `Q4_K_M`).",
+            "description": "Quantiza\u00c3\u00a7\u00c3\u00a3o (ex.: `Q4_K_M`).",
             "title": "Quantization Level"
           },
           "selectable": {
@@ -526,7 +536,7 @@
         },
         "properties": {
           "default_model": {
-            "description": "Modelo usado quando `model` é omitido no chat.",
+            "description": "Modelo usado quando `model` \u00c3\u00a9 omitido no chat.",
             "title": "Default Model",
             "type": "string"
           },
@@ -574,7 +584,7 @@
             "title": "Provider"
           },
           "request_id": {
-            "description": "Identificador da requisição (RF-SIS-03).",
+            "description": "Identificador da requisi\u00c3\u00a7\u00c3\u00a3o (RF-SIS-03).",
             "title": "Request Id",
             "type": "string"
           },
@@ -612,7 +622,7 @@
             "type": "string"
           },
           "value": {
-            "description": "`gid` ou IP cuja cota diária será zerada.",
+            "description": "`gid` ou IP cuja cota di\u00c3\u00a1ria ser\u00c3\u00a1 zerada.",
             "maxLength": 256,
             "minLength": 1,
             "title": "Value",
@@ -639,12 +649,12 @@
         },
         "properties": {
           "avg_response_seconds": {
-            "description": "Duração média das respostas, em segundos.",
+            "description": "Dura\u00c3\u00a7\u00c3\u00a3o m\u00c3\u00a9dia das respostas, em segundos.",
             "title": "Avg Response Seconds",
             "type": "number"
           },
           "chat_requests_total": {
-            "description": "Requisições de chat recebidas.",
+            "description": "Requisi\u00c3\u00a7\u00c3\u00b5es de chat recebidas.",
             "title": "Chat Requests Total",
             "type": "integer"
           },
@@ -664,7 +674,7 @@
             "type": "integer"
           },
           "since": {
-            "description": "Início da contagem (boot da API), em UTC.",
+            "description": "In\u00c3\u00adcio da contagem (boot da API), em UTC.",
             "title": "Since",
             "type": "string"
           }
@@ -723,7 +733,7 @@
       },
       "UsageInfo": {
         "additionalProperties": false,
-        "description": "Limites e uso restante do chamador (SRS §3.7.2).",
+        "description": "Limites e uso restante do chamador (SRS \u00c2\u00a73.7.2).",
         "properties": {
           "daily_limit": {
             "anyOf": [
@@ -734,7 +744,7 @@
                 "type": "null"
               }
             ],
-            "description": "Cota diária; `null` para o admin.",
+            "description": "Cota di\u00c3\u00a1ria; `null` para o admin.",
             "title": "Daily Limit"
           },
           "daily_remaining": {
@@ -746,7 +756,7 @@
                 "type": "null"
               }
             ],
-            "description": "Uso diário restante; `null` para o admin.",
+            "description": "Uso di\u00c3\u00a1rio restante; `null` para o admin.",
             "title": "Daily Remaining"
           },
           "per_minute_limit": {
@@ -755,7 +765,7 @@
             "type": "integer"
           },
           "per_minute_remaining": {
-            "description": "Requisições restantes no minuto.",
+            "description": "Requisi\u00c3\u00a7\u00c3\u00b5es restantes no minuto.",
             "title": "Per Minute Remaining",
             "type": "integer"
           },
@@ -768,7 +778,7 @@
                 "type": "null"
               }
             ],
-            "description": "Próximo reset da cota diária (ISO 8601 UTC).",
+            "description": "Pr\u00c3\u00b3ximo reset da cota di\u00c3\u00a1ria (ISO 8601 UTC).",
             "title": "Resets At"
           }
         },
@@ -802,7 +812,7 @@
                 "type": "null"
               }
             ],
-            "description": "Cota diária; `null` para o admin.",
+            "description": "Cota di\u00c3\u00a1ria; `null` para o admin.",
             "title": "Daily Limit"
           },
           "daily_remaining": {
@@ -814,7 +824,7 @@
                 "type": "null"
               }
             ],
-            "description": "Uso diário restante; `null` para o admin.",
+            "description": "Uso di\u00c3\u00a1rio restante; `null` para o admin.",
             "title": "Daily Remaining"
           },
           "per_minute_limit": {
@@ -823,7 +833,7 @@
             "type": "integer"
           },
           "per_minute_remaining": {
-            "description": "Requisições restantes no minuto.",
+            "description": "Requisi\u00c3\u00a7\u00c3\u00b5es restantes no minuto.",
             "title": "Per Minute Remaining",
             "type": "integer"
           },
@@ -836,7 +846,7 @@
                 "type": "null"
               }
             ],
-            "description": "Próximo reset da cota diária (ISO 8601 UTC).",
+            "description": "Pr\u00c3\u00b3ximo reset da cota di\u00c3\u00a1ria (ISO 8601 UTC).",
             "title": "Resets At"
           },
           "role": {
@@ -908,15 +918,15 @@
     }
   },
   "info": {
-    "description": "\nAPI do chat de IA via web, conforme o SRS v1.2.\n\n- Autenticação por JWT (`admin` e `guest`).\n- Chat com resposta JSON ou streaming SSE.\n- Catálogo de modelos (`/models`) e seleção de modelo por requisição.\n- Cotas em memória por convidado e por IP.\n- Administração: estatísticas, status do provedor, guests e reset de cota.\n- Erros no padrão Problem Details (`application/problem+json`).\n",
+    "description": "API do chat de IA via web, conforme o SRS v2.0.\n\n- Autentica\u00e7\u00e3o por JWT (\u0007dmin e guest).\n- Chat com resposta JSON ou streaming SSE.\n- Gateway multi-provedor (Ollama, OpenAI, Anthropic, Gemini e OpenAI-compatible).\n- Cat\u00e1logo agregado de modelos (/models) e sele\u00e7\u00e3o por Model ID.\n- Camadas de compatibilidade OpenAI, Anthropic (Claude Code) e Ollama.\n- Cotas em mem\u00f3ria por convidado e por IP.\n- Administra\u00e7\u00e3o: estat\u00edsticas, status dos provedores, guests e reset de cota.\n- Erros no padr\u00e3o Problem Details (\u0007pplication/problem+json).",
     "title": "Nexa API",
-    "version": "1.1.0"
+    "version": "2.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
     "/api/v1/admin/ai/status": {
       "get": {
-        "description": "Informa provedor, modelo e disponibilidade. Chaves e segredos nunca são expostos.",
+        "description": "Informa provedor, modelo e disponibilidade. Chaves e segredos nunca s\u00c3\u00a3o expostos.",
         "operationId": "ai_status_api_v1_admin_ai_status_get",
         "responses": {
           "200": {
@@ -930,7 +940,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           },
           "403": {
             "description": "Requer papel `admin`."
@@ -943,13 +953,13 @@
         ],
         "summary": "Status do provedor de IA",
         "tags": [
-          "Administração"
+          "Administra\u00c3\u00a7\u00c3\u00a3o"
         ]
       }
     },
     "/api/v1/admin/guests": {
       "get": {
-        "description": "Lista os guests conhecidos em memória (para obter o `gid` usado no reset) e o uso diário agregado por IP.",
+        "description": "Lista os guests conhecidos em mem\u00c3\u00b3ria (para obter o `gid` usado no reset) e o uso di\u00c3\u00a1rio agregado por IP.",
         "operationId": "list_guests_api_v1_admin_guests_get",
         "responses": {
           "200": {
@@ -963,7 +973,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           },
           "403": {
             "description": "Requer papel `admin`."
@@ -976,13 +986,13 @@
         ],
         "summary": "Guests ativos e uso por IP",
         "tags": [
-          "Administração"
+          "Administra\u00c3\u00a7\u00c3\u00a3o"
         ]
       }
     },
     "/api/v1/admin/stats": {
       "get": {
-        "description": "Contadores em memória desde a última inicialização: requisições de chat, guests distintos, barrados por limite, erros do provedor e duração média.",
+        "description": "Contadores em mem\u00c3\u00b3ria desde a \u00c3\u00baltima inicializa\u00c3\u00a7\u00c3\u00a3o: requisi\u00c3\u00a7\u00c3\u00b5es de chat, guests distintos, barrados por limite, erros do provedor e dura\u00c3\u00a7\u00c3\u00a3o m\u00c3\u00a9dia.",
         "operationId": "get_stats_api_v1_admin_stats_get",
         "responses": {
           "200": {
@@ -996,7 +1006,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           },
           "403": {
             "description": "Requer papel `admin`."
@@ -1007,15 +1017,15 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Estatísticas de uso",
+        "summary": "Estat\u00c3\u00adsticas de uso",
         "tags": [
-          "Administração"
+          "Administra\u00c3\u00a7\u00c3\u00a3o"
         ]
       }
     },
     "/api/v1/admin/usage/reset": {
       "post": {
-        "description": "Zera a cota diária do `gid` ou do IP informado. Alvo inexistente retorna `404` (`not_found`).",
+        "description": "Zera a cota di\u00c3\u00a1ria do `gid` ou do IP informado. Alvo inexistente retorna `404` (`not_found`).",
         "operationId": "reset_usage_api_v1_admin_usage_reset_post",
         "requestBody": {
           "content": {
@@ -1032,7 +1042,7 @@
             "description": "Cota zerada."
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           },
           "403": {
             "description": "Requer papel `admin`."
@@ -1058,13 +1068,13 @@
         ],
         "summary": "Zera a cota de um guest ou IP",
         "tags": [
-          "Administração"
+          "Administra\u00c3\u00a7\u00c3\u00a3o"
         ]
       }
     },
     "/api/v1/auth/guest": {
       "post": {
-        "description": "Cria um `gid` (UUID v4) e devolve um token com papel `guest` e o uso inicial. A emissão é limitada por IP.",
+        "description": "Cria um `gid` (UUID v4) e devolve um token com papel `guest` e o uso inicial. A emiss\u00c3\u00a3o \u00c3\u00a9 limitada por IP.",
         "operationId": "guest_token_api_v1_auth_guest_post",
         "responses": {
           "200": {
@@ -1078,18 +1088,18 @@
             "description": "Successful Response"
           },
           "429": {
-            "description": "Limite de emissão por IP excedido."
+            "description": "Limite de emiss\u00c3\u00a3o por IP excedido."
           }
         },
         "summary": "Emite token de convidado",
         "tags": [
-          "Autenticação"
+          "Autentica\u00c3\u00a7\u00c3\u00a3o"
         ]
       }
     },
     "/api/v1/auth/login": {
       "post": {
-        "description": "Valida usuário e senha e devolve um access token JWT.",
+        "description": "Valida usu\u00c3\u00a1rio e senha e devolve um access token JWT.",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -1113,7 +1123,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Credenciais inválidas."
+            "description": "Credenciais inv\u00c3\u00a1lidas."
           },
           "422": {
             "content": {
@@ -1131,13 +1141,13 @@
         },
         "summary": "Login do administrador",
         "tags": [
-          "Autenticação"
+          "Autentica\u00c3\u00a7\u00c3\u00a3o"
         ]
       }
     },
     "/api/v1/chat": {
       "post": {
-        "description": "Recebe o contexto completo e devolve a resposta do modelo. Com `stream = false` a resposta é um JSON completo; com `stream = true` (padrão) a resposta é um fluxo SSE com `data:` por trecho, evento `done` no fim e evento `error` em falhas após o início (3.7.3).",
+        "description": "Recebe o contexto completo e devolve a resposta do modelo. Com `stream = false` a resposta \u00c3\u00a9 um JSON completo; com `stream = true` (padr\u00c3\u00a3o) a resposta \u00c3\u00a9 um fluxo SSE com `data:` por trecho, evento `done` no fim e evento `error` em falhas ap\u00c3\u00b3s o in\u00c3\u00adcio (3.7.3).",
         "operationId": "chat_api_v1_chat_post",
         "requestBody": {
           "content": {
@@ -1158,7 +1168,7 @@
                 }
               },
               "text/event-stream": {
-                "example": "data: {\"content\":\"SSE é \"}\n\nevent: done\ndata: {\"status\":\"complete\",\"finish_reason\":\"stop\",\"usage\":{\"daily_limit\":10,\"daily_remaining\":6,\"per_minute_limit\":3,\"per_minute_remaining\":2,\"resets_at\":\"2026-10-29T00:00:00Z\"}}\n\n",
+                "example": "data: {\"content\":\"SSE \u00c3\u00a9 \"}\n\nevent: done\ndata: {\"status\":\"complete\",\"finish_reason\":\"stop\",\"usage\":{\"daily_limit\":10,\"daily_remaining\":6,\"per_minute_limit\":3,\"per_minute_remaining\":2,\"resets_at\":\"2026-10-29T00:00:00Z\"}}\n\n",
                 "schema": {
                   "type": "string"
                 }
@@ -1167,10 +1177,10 @@
             "description": "Resposta JSON (`stream = false`) ou fluxo SSE (`stream = true`)."
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           },
           "422": {
-            "description": "Contexto inválido ou acima dos limites do papel."
+            "description": "Contexto inv\u00c3\u00a1lido ou acima dos limites do papel."
           },
           "429": {
             "description": "Cota ou limite por minuto excedido."
@@ -1195,7 +1205,7 @@
     },
     "/api/v1/models": {
       "get": {
-        "description": "Consulta o provedor de IA (Ollama) e devolve os modelos locais instalados, com nome, tamanho, data de modificação, família, parâmetros e quantização. `default_model` é o modelo usado quando o chat omite `model`; `selectable` indica se o modelo pode ser escolhido no chat (respeita `AI_ALLOWED_MODELS`).",
+        "description": "Consulta o provedor de IA (Ollama) e devolve os modelos locais instalados, com nome, tamanho, data de modifica\u00c3\u00a7\u00c3\u00a3o, fam\u00c3\u00adlia, par\u00c3\u00a2metros e quantiza\u00c3\u00a7\u00c3\u00a3o. `default_model` \u00c3\u00a9 o modelo usado quando o chat omite `model`; `selectable` indica se o modelo pode ser escolhido no chat (respeita `AI_ALLOWED_MODELS`).",
         "operationId": "list_models_api_v1_models_get",
         "parameters": [
           {
@@ -1223,7 +1233,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           },
           "422": {
             "content": {
@@ -1236,13 +1246,13 @@
             "description": "Validation Error"
           },
           "502": {
-            "description": "Resposta inválida do provedor."
+            "description": "Resposta inv\u00c3\u00a1lida do provedor."
           },
           "503": {
-            "description": "Provedor de IA indisponível."
+            "description": "Provedor de IA indispon\u00c3\u00advel."
           },
           "504": {
-            "description": "Provedor de IA não respondeu a tempo."
+            "description": "Provedor de IA n\u00c3\u00a3o respondeu a tempo."
           }
         },
         "security": [
@@ -1258,7 +1268,7 @@
     },
     "/api/v1/usage": {
       "get": {
-        "description": "Retorna a cota diária (apenas guest), o limite por minuto e o uso restante do chamador. Para o admin, os campos diários são `null`.",
+        "description": "Retorna a cota di\u00c3\u00a1ria (apenas guest), o limite por minuto e o uso restante do chamador. Para o admin, os campos di\u00c3\u00a1rios s\u00c3\u00a3o `null`.",
         "operationId": "get_usage_api_v1_usage_get",
         "responses": {
           "200": {
@@ -1272,7 +1282,7 @@
             "description": "Successful Response"
           },
           "401": {
-            "description": "Token ausente ou inválido."
+            "description": "Token ausente ou inv\u00c3\u00a1lido."
           }
         },
         "security": [
@@ -1288,7 +1298,7 @@
     },
     "/health": {
       "get": {
-        "description": "Indica que o processo está no ar. Público e sem dependências externas.",
+        "description": "Indica que o processo est\u00c3\u00a1 no ar. P\u00c3\u00bablico e sem depend\u00c3\u00aancias externas.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -1302,7 +1312,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Saúde da API",
+        "summary": "Sa\u00c3\u00bade da API",
         "tags": [
           "Sistema"
         ]
@@ -1310,7 +1320,7 @@
     },
     "/health/ready": {
       "get": {
-        "description": "Verifica o provedor de IA configurado. Sem provedor registrado (fase de fundação), responde `200`.",
+        "description": "Verifica o provedor de IA configurado. Sem provedor registrado (fase de funda\u00c3\u00a7\u00c3\u00a3o), responde `200`.",
         "operationId": "readiness_health_ready_get",
         "responses": {
           "200": {
@@ -1334,7 +1344,7 @@
             "description": "Service Unavailable"
           }
         },
-        "summary": "Prontidão da API",
+        "summary": "Prontid\u00c3\u00a3o da API",
         "tags": [
           "Sistema"
         ]

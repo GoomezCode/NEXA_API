@@ -142,18 +142,17 @@ def test_ai_status_reports_provider_without_secrets(client: TestClient) -> None:
     response = client.get("/api/v1/admin/ai/status", headers=_auth(token))
 
     assert response.status_code == 200
-    assert response.json() == {
-        "provider": "fake",
-        "model": "fake-model",
-        "available": True,
-        "checked_at": "2026-10-28T12:00:00Z",
-    }
+    body = response.json()
+    # Em v2.0, o status inclui a lista de provedores.
+    assert body["providers"][0]["provider"] == "fake"
+    assert body["providers"][0]["available"] is True
+    assert body["providers"][0]["default_model"] == "fake-model"
+    assert body["providers"][0]["checked_at"] == "2026-10-28T12:00:00Z"
+    assert body["providers"][0]["error"] is None
 
 
 @pytest.mark.parametrize("failure", ["unhealthy", "raises"])
-def test_ai_status_reports_unavailable(
-    client: TestClient, provider: FakeProvider, failure: str
-) -> None:
+def test_ai_status_reports_unavailable(client: TestClient, provider: FakeProvider, failure: str) -> None:
     token = _admin_token(client)
     if failure == "unhealthy":
         provider.healthy = False
@@ -163,7 +162,9 @@ def test_ai_status_reports_unavailable(
     response = client.get("/api/v1/admin/ai/status", headers=_auth(token))
 
     assert response.status_code == 200
-    assert response.json()["available"] is False
+    body = response.json()
+    # Em v2.0, o campo 'available' está dentro de cada provedor da lista.
+    assert body["providers"][0]["available"] is False
 
 
 def test_guest_listing_exposes_gid_and_usage(client: TestClient) -> None:
