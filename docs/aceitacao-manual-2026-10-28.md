@@ -1,5 +1,10 @@
 # Aceitação manual com Ollama real — 28/10/2026
 
+> **Escopo histórico:** esta evidência refere-se exclusivamente à **v1.1.0**
+> (SRS v1.2, CA-01..CA-25). A rodada de aceitação da **v2.0** (gateway
+> multi-provedor, compatibilidade e SQLite) será registrada em documento próprio
+> após a fase F17. Ver [`checklist-release.md`](checklist-release.md).
+
 Rodada de aceitação da API contra um Ollama local, sem provedor *fake*
 (release `v1.0.0`), complementada nesta mesma data com o catálogo e a seleção de
 modelo da `v1.1.0` (seção F11).
