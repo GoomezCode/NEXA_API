@@ -10,7 +10,7 @@
 | **Data** | 29/10/2026 |
 | **Padrões de referência** | IEEE Std 830-1998, ISO/IEC/IEEE 29148:2018 |
 | **Documento de origem** | `levantamento-chat-ia-web.md` (documento externo a este repositório) |
-| **Estado** | **F14 CONCLUIDO** - compatibilidade OpenAI (`/v1/chat/completions`, `/v1/models`) e API keys implementadas. Próximas: F15-F17 (Anthropic/Claude Code, Ollama, hardening e release v2.0.0). |
+| **Estado** | **F16 CONCLUIDO** - compatibilidade Ollama (`/api/chat`, `/api/tags`, `/api/show`, `/api/ps`) implementada. Próxima: F17 (hardening, performance e release v2.0.0). |
 
 ### Histórico de revisões
 

@@ -15,6 +15,7 @@ from app.ai.router import ProviderRouter
 from app.api import admin, auth, chat, models, system, usage, users
 from app.compat.anthropic import router as anthropic_compat_router
 from app.compat.errors import CompatApiError, compat_error_handler
+from app.compat.ollama import router as ollama_compat_router
 from app.compat.openai import router as openai_compat_router
 from app.config import Settings, get_settings
 from app.core.api_keys import ApiKeyRegistry
@@ -215,6 +216,8 @@ def create_app(
         app.include_router(openai_compat_router)
     if resolved.compat_anthropic_enabled:
         app.include_router(anthropic_compat_router)
+    if resolved.compat_ollama_enabled:
+        app.include_router(ollama_compat_router)
     return app
 
 

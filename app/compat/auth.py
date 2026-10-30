@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from ipaddress import ip_address
 from typing import Literal, cast
 
 from fastapi import Request
@@ -74,6 +75,15 @@ def _token_from_request(request: Request) -> str | None:
     return api_key or None
 
 
+def _peer_is_loopback(request: Request) -> bool:
+    """Conexão direta veio de loopback (não considera `X-Forwarded-For`)."""
+    peer = request.client.host if request.client else ""
+    try:
+        return ip_address(peer).is_loopback
+    except ValueError:
+        return False
+
+
 def _key_identity(token: str, *, scope: str, request: Request) -> CompatIdentity:
     identity = _registry(request).authenticate(token)
     if identity is None:
@@ -127,8 +137,17 @@ async def _jwt_identity(token: str, request: Request, *, scope: str) -> CompatId
     )
 
 
-async def get_compat_identity(request: Request, *, scope: str) -> CompatIdentity:
-    """API key NEXA, JWT admin/usuário ou modo anônimo (somente desenvolvimento)."""
+async def get_compat_identity(
+    request: Request,
+    *,
+    scope: str,
+    allow_localhost: bool = False,
+) -> CompatIdentity:
+    """API key NEXA, JWT admin/usuário ou modo anônimo (somente desenvolvimento).
+
+    `allow_localhost` habilita o acesso sem chave para conexões de loopback,
+    usado exclusivamente pela superfície Ollama em desenvolvimento.
+    """
     settings = _settings(request)
     token = _token_from_request(request)
 
@@ -136,6 +155,15 @@ async def get_compat_identity(request: Request, *, scope: str) -> CompatIdentity
         identity = _key_identity(token, scope=scope, request=request)
     elif token is not None:
         identity = await _jwt_identity(token, request, scope=scope)
+    elif allow_localhost and settings.compat_ollama_allow_localhost and _peer_is_loopback(request):
+        ip = get_client_ip(request, settings.trusted_proxies)
+        identity = CompatIdentity(
+            kind="anonymous",
+            subject=f"localhost:{ip}",
+            role="guest",
+            scopes=DEFAULT_SCOPES,
+        )
+        logger.info("compat_ollama_localhost_access", scope=scope, ip=ip)
     elif settings.compat_allow_anonymous:
         ip = get_client_ip(request, settings.trusted_proxies)
         identity = CompatIdentity(

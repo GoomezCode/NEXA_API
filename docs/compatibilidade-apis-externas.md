@@ -2,8 +2,8 @@
 
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
-> **Estado:** OpenAI implementado na F14 e Anthropic/Claude Code na F15; Ollama
-> planejado para a F16. A API em produção permanece na v1.1.0.
+> **Estado:** OpenAI implementado na F14, Anthropic/Claude Code na F15 e Ollama
+> na F16. A API em produção permanece na v1.1.0.
 
 ## 1. Objetivo
 
@@ -58,7 +58,7 @@ COMPAT_OLLAMA_ALLOW_LOCALHOST=false
 
 - `COMPAT_ALLOW_ANONYMOUS=true` libera as rotas de compatibilidade sem chave.
 - `COMPAT_OLLAMA_ALLOW_LOCALHOST=true` libera apenas conexões de loopback para
-  clientes Ollama.
+  clientes Ollama. O IP é o da conexão direta (não considera `X-Forwarded-For`).
 - Em `ENVIRONMENT=production`, a API **recusa iniciar** com qualquer um dos dois
   habilitado.
 
@@ -405,17 +405,38 @@ Streaming (uma linha JSON por trecho):
 {"model":"llama3.1:latest","created_at":"...","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop","prompt_eval_count":12,"eval_count":8}
 ```
 
+Regras de tradução:
+
+- `stream` é o padrão do contrato Ollama; a rota responde
+  `application/x-ndjson` com `done:false` por trecho e uma linha final
+  `done:true` (inclui `done_reason`, `prompt_eval_count` e `eval_count`).
+- `options.num_predict` é limitado por `AI_MAX_OUTPUT_TOKENS`.
+- `options.temperature`, `options.top_p` e `options.stop` são aceitos e
+  **ignorados** pelo adapter atual, como nas demais superfícies.
+- `format` diferente de `null` exige um modelo com `json_mode`; caso contrário a
+  rota responde `400` com `{"error": "..."}`.
+- `keep_alive` é aceito por compatibilidade e **ignorado**: o gateway não mantém
+  modelos carregados nem estado de conversa.
+- `tools[].function.parameters` vira o schema nativo; `tool_calls` retornam com
+  `arguments` como objeto JSON (não string), como no Ollama.
+- Imagens (`images`) exigem modelo com `vision`; o base64 não é repassado ao
+  provedor, apenas o marcador `[imagem]` no conteúdo da mensagem.
+
 ### 5.3 `GET /api/tags`
+
+Os nomes publicados são **Model IDs canônicos** (`provider/model`), aceitos de
+volta em `/api/chat` e `/api/show`; o sufixo `:latest` do nome do provedor é
+preservado quando existir. Consultar o catálogo não consome cota.
 
 ```json
 {
   "models": [
     {
-      "name": "llama3.1:latest",
-      "model": "llama3.1:latest",
+      "name": "ollama/llama3.1:latest",
+      "model": "ollama/llama3.1:latest",
       "modified_at": "2026-10-29T14:30:00Z",
       "size": 4920739055,
-      "digest": "sha256:...",
+      "digest": "sha256:4f2c...",
       "details": {
         "family": "llama",
         "parameter_size": "8.0B",
@@ -426,29 +447,31 @@ Streaming (uma linha JSON por trecho):
 }
 ```
 
+`size` é `0` quando o provedor não informa o tamanho e `digest` é derivado do
+Model ID (identificador estável, não o hash do arquivo do modelo).
+
 ### 5.4 `POST /api/show`
+
+Aceita o Model ID canônico ou o nome simples do modelo.
 
 ```json
 {
-  "model": "llama3.1:latest",
+  "model": "ollama/llama3.1:latest",
   "details": {"family": "llama", "parameter_size": "8.0B", "quantization_level": "Q4_K_M"},
-  "capabilities": ["completion", "tools"],
+  "capabilities": ["completion", "tools", "vision"],
   "modified_at": "2026-10-29T14:30:00Z"
 }
 ```
 
 ### 5.5 `GET /api/ps`
 
+O gateway é stateless e não mantém modelos carregados; a rota responde sempre:
+
 ```json
-{
-  "models": [
-    {"name": "llama3.1:latest", "model": "llama3.1:latest", "size": 4920739055, "size_vram": 0, "expires_at": "2026-10-29T15:00:00Z"}
-  ]
-}
+{"models": []}
 ```
 
-Em um gateway, o `ps` é agregado ou retorna vazio; o comportamento é documentado
-no OpenAPI.
+A rota existe para clientes Ollama que a consultam na inicialização.
 
 ### 5.6 Erros
 
@@ -458,11 +481,13 @@ no OpenAPI.
 
 | HTTP | Situação |
 |---|---|
-| 400 | Requisição inválida |
+| 400 | Requisição inválida (validação, capacidade ou `format`) |
 | 401 | API key ausente/inválida |
 | 404 | Modelo inexistente |
 | 429 | Cota/rate limit |
 | 502/503/504 | Falha do provedor |
+
+Erros de validação nativa (`422`) são remapeados para `400` nesta superfície.
 
 ## 6. Tabelas de tradução
 
@@ -495,13 +520,13 @@ no OpenAPI.
 
 ### 6.4 Ferramentas
 
-| Nativo | OpenAI | Anthropic |
-|---|---|---|
-| `tools[].name` | `function.name` | `name` |
-| `tools[].description` | `function.description` | `description` |
-| `tools[].parameters` | `function.parameters` | `input_schema` |
-| `tool_calls[]` | `message.tool_calls[]` | blocos `tool_use` |
-| resultado | mensagem `role=tool` | bloco `tool_result` |
+| Nativo | OpenAI | Anthropic | Ollama |
+|---|---|---|---|
+| `tools[].name` | `function.name` | `name` | `function.name` |
+| `tools[].description` | `function.description` | `description` | `function.description` |
+| `tools[].parameters` | `function.parameters` | `input_schema` | `function.parameters` |
+| `tool_calls[]` | `message.tool_calls[]` | blocos `tool_use` | `message.tool_calls[]` (`arguments` objeto) |
+| resultado | mensagem `role=tool` | bloco `tool_result` | mensagem `role=tool` com `tool_name` |
 
 ### 6.5 Imagens
 
@@ -606,9 +631,9 @@ curl -sS -X POST http://localhost:8000/api/chat \
 - [ ] Anthropic tools: `tool_use`, `input_json_delta`, `tool_result`.
 - [ ] Anthropic `count_tokens`.
 - [ ] Anthropic erros: envelope `type=error`.
-- [ ] Ollama chat: NDJSON completo e `done_reason`.
-- [ ] Ollama tags/show/ps.
-- [ ] Ollama erros: `{"error": "..."}`.
+- [x] Ollama chat: NDJSON completo e `done_reason`.
+- [x] Ollama tags/show/ps.
+- [x] Ollama erros: `{"error": "..."}`.
 - [ ] Auth: chave ausente/inválida em cada superfície.
 - [ ] Cotas: 429 no envelope correto.
 - [ ] Nenhuma chave/conteúdo em log.

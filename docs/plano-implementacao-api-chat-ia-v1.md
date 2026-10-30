@@ -11,7 +11,7 @@
 | **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v2.0) |
 | **Escopo** | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
-| **Estado** | **Concluído** - F15 implementado em 30/10/2026. Próxima: F16 (compatibilidade Ollama). |
+| **Estado** | **Concluído** - F16 implementado em 30/10/2026. Próxima: F17 (hardening, performance e release). |
 
 ### Histórico de revisões
 
@@ -607,15 +607,15 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] `POST /api/chat` com `model`, `messages`, `stream`, `tools`, `options`, `format`, `keep_alive`; NDJSON.
-- [ ] `GET /api/tags` com metadados e `details`.
-- [ ] `POST /api/show` e `GET /api/ps` (agregado/opcional).
-- [ ] Auth configurável (`COMPAT_OLLAMA_ALLOW_LOCALHOST` somente desenvolvimento) e envelope de erro Ollama.
-- [ ] Testes de contrato NDJSON.
+- [x] `POST /api/chat` com `model`, `messages`, `stream`, `tools`, `options`, `format`, `keep_alive`; NDJSON.
+- [x] `GET /api/tags` com metadados e `details`.
+- [x] `POST /api/show` e `GET /api/ps` (agregado/opcional).
+- [x] Auth configurável (`COMPAT_OLLAMA_ALLOW_LOCALHOST` somente desenvolvimento) e envelope de erro Ollama.
+- [x] Testes de contrato NDJSON.
 
 **Testes:** chat streaming/não-streaming; tags/show/ps; tools; modelo inválido; auth; erro de provedor.
 
-**Gate:** CA-37, CA-38 verdes; um cliente Ollama de teste consome `/api/chat` e `/api/tags`.
+**Gate:** CA-37, CA-38 verdes; um cliente Ollama de teste consome `/api/chat` e `/api/tags` (`tests/e2e/test_ollama_client.py`).
 
 ---
 
@@ -855,7 +855,7 @@ Regras:
 - [x] CA-34 Anthropic JSON
 - [x] CA-35 Anthropic streaming + tools
 - [x] CA-36 Claude Code E2E
-- [ ] CA-37 Ollama NDJSON + tags
+- [x] CA-37 Ollama NDJSON + tags
 - [x] CA-38 auth/cotas nas rotas de compatibilidade
 - [x] CA-39 chaves nunca expostas
 - [x] CA-40 login do admin sem SQLite

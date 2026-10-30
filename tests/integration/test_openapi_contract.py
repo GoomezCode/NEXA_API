@@ -41,6 +41,10 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/v1/models": {"get"},
     "/v1/messages": {"post"},
     "/v1/messages/count_tokens": {"post"},
+    "/api/chat": {"post"},
+    "/api/tags": {"get"},
+    "/api/show": {"post"},
+    "/api/ps": {"get"},
 }
 
 PUBLIC_OPERATIONS = {
@@ -84,6 +88,12 @@ DOCUMENTED_EXAMPLE_SCHEMAS = (
     "AnthropicMessageResponse",
     "AnthropicCountTokensRequest",
     "AnthropicCountTokensResponse",
+    "OllamaChatRequest",
+    "OllamaChatResponse",
+    "OllamaTagsResponse",
+    "OllamaShowRequest",
+    "OllamaShowResponse",
+    "OllamaPsResponse",
 )
 
 
@@ -175,6 +185,20 @@ def test_messages_documents_json_and_sse(client: TestClient) -> None:
     assert sse["schema"]["type"] == "string"
     assert "event: message_start" in sse["example"]
     assert "event: message_stop" in sse["example"]
+
+
+def test_ollama_chat_documents_json_and_ndjson(client: TestClient) -> None:
+    spec = _spec(client)
+    operation = spec["paths"]["/api/chat"]["post"]
+    content = operation["responses"]["200"]["content"]
+
+    assert set(content) == {"application/json", "application/x-ndjson"}
+    assert content["application/json"]["schema"]["$ref"].endswith("/OllamaChatResponse")
+    ndjson = content["application/x-ndjson"]
+    assert ndjson["schema"]["type"] == "string"
+    lines = [line for line in ndjson["example"].splitlines() if line]
+    assert all(json.loads(line) for line in lines)
+    assert json.loads(lines[-1])["done"] is True
 
 
 def test_protected_operations_use_bearer_auth(client: TestClient) -> None:

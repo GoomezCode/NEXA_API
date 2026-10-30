@@ -1617,6 +1617,589 @@
         "title": "ModelsResponse",
         "type": "object"
       },
+      "OllamaChatMessage": {
+        "additionalProperties": false,
+        "description": "Mensagem `assistant` da resposta.",
+        "properties": {
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaToolCallOut"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          }
+        },
+        "title": "OllamaChatMessage",
+        "type": "object"
+      },
+      "OllamaChatRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /api/chat`.",
+        "example": {
+          "format": "json",
+          "keep_alive": "5m",
+          "messages": [
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "model": "ollama/llama3.1",
+          "options": {
+            "num_predict": 256,
+            "temperature": 0.7
+          },
+          "stream": false,
+          "tools": []
+        },
+        "properties": {
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "keep_alive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Alive"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaMessage"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": true,
+            "title": "Options",
+            "type": "object"
+          },
+          "stream": {
+            "default": true,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OllamaTool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "OllamaChatRequest",
+        "type": "object"
+      },
+      "OllamaChatResponse": {
+        "additionalProperties": false,
+        "description": "Resposta não-streaming de `POST /api/chat` (CA-37).",
+        "example": {
+          "created_at": "2026-10-29T14:30:00Z",
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 8,
+          "message": {
+            "content": "Olá! Como posso ajudar?",
+            "role": "assistant"
+          },
+          "model": "llama3.1:latest",
+          "prompt_eval_count": 12
+        },
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "done": {
+            "const": true,
+            "default": true,
+            "title": "Done",
+            "type": "boolean"
+          },
+          "done_reason": {
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls"
+            ],
+            "title": "Done Reason",
+            "type": "string"
+          },
+          "eval_count": {
+            "title": "Eval Count",
+            "type": "integer"
+          },
+          "message": {
+            "$ref": "#/components/schemas/OllamaChatMessage"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_eval_count": {
+            "title": "Prompt Eval Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "created_at",
+          "message",
+          "done_reason",
+          "prompt_eval_count",
+          "eval_count"
+        ],
+        "title": "OllamaChatResponse",
+        "type": "object"
+      },
+      "OllamaFunction": {
+        "additionalProperties": true,
+        "description": "Definição da função de uma ferramenta.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OllamaFunction",
+        "type": "object"
+      },
+      "OllamaMessage": {
+        "additionalProperties": true,
+        "description": "Mensagem no contrato Ollama.",
+        "properties": {
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images"
+          },
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OllamaToolCall"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          },
+          "tool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Name"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "OllamaMessage",
+        "type": "object"
+      },
+      "OllamaModelDetails": {
+        "additionalProperties": false,
+        "description": "Detalhes de um modelo no shape Ollama.",
+        "properties": {
+          "family": {
+            "default": "",
+            "title": "Family",
+            "type": "string"
+          },
+          "parameter_size": {
+            "default": "",
+            "title": "Parameter Size",
+            "type": "string"
+          },
+          "quantization_level": {
+            "default": "",
+            "title": "Quantization Level",
+            "type": "string"
+          }
+        },
+        "title": "OllamaModelDetails",
+        "type": "object"
+      },
+      "OllamaPsModel": {
+        "additionalProperties": false,
+        "description": "Modelo em execução (o gateway não mantém estado).",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "size_vram": {
+            "title": "Size Vram",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "model",
+          "size",
+          "size_vram"
+        ],
+        "title": "OllamaPsModel",
+        "type": "object"
+      },
+      "OllamaPsResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /api/ps`.",
+        "example": {
+          "models": []
+        },
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaPsModel"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "title": "OllamaPsResponse",
+        "type": "object"
+      },
+      "OllamaShowRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /api/show`.",
+        "example": {
+          "model": "ollama/llama3.1"
+        },
+        "properties": {
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "verbose": {
+            "default": false,
+            "title": "Verbose",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "title": "OllamaShowRequest",
+        "type": "object"
+      },
+      "OllamaShowResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /api/show`.",
+        "example": {
+          "capabilities": [
+            "completion",
+            "tools"
+          ],
+          "details": {
+            "family": "llama",
+            "parameter_size": "8.0B",
+            "quantization_level": "Q4_K_M"
+          },
+          "model": "ollama/llama3.1",
+          "modified_at": "2026-10-29T14:30:00Z"
+        },
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/OllamaModelDetails"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "details",
+          "capabilities",
+          "modified_at"
+        ],
+        "title": "OllamaShowResponse",
+        "type": "object"
+      },
+      "OllamaTagModel": {
+        "additionalProperties": false,
+        "description": "Modelo listado por `GET /api/tags`.",
+        "properties": {
+          "details": {
+            "$ref": "#/components/schemas/OllamaModelDetails"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "model",
+          "modified_at",
+          "size",
+          "digest",
+          "details"
+        ],
+        "title": "OllamaTagModel",
+        "type": "object"
+      },
+      "OllamaTagsResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /api/tags` (CA-37).",
+        "example": {
+          "models": [
+            {
+              "details": {
+                "family": "llama",
+                "parameter_size": "8.0B",
+                "quantization_level": "Q4_K_M"
+              },
+              "digest": "sha256:0192f3a4",
+              "model": "ollama/llama3.1",
+              "modified_at": "2026-10-29T14:30:00Z",
+              "name": "ollama/llama3.1",
+              "size": 4920739055
+            }
+          ]
+        },
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaTagModel"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "title": "OllamaTagsResponse",
+        "type": "object"
+      },
+      "OllamaTool": {
+        "additionalProperties": true,
+        "description": "Ferramenta declarada no contrato Ollama.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OllamaFunction"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OllamaTool",
+        "type": "object"
+      },
+      "OllamaToolCall": {
+        "additionalProperties": true,
+        "description": "Chamada de ferramenta em `messages[].tool_calls`.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OllamaToolCallFunction"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OllamaToolCall",
+        "type": "object"
+      },
+      "OllamaToolCallFunction": {
+        "additionalProperties": true,
+        "description": "Chamada de ferramenta (argumentos como objeto JSON).",
+        "properties": {
+          "arguments": {
+            "additionalProperties": true,
+            "title": "Arguments",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OllamaToolCallFunction",
+        "type": "object"
+      },
+      "OllamaToolCallOut": {
+        "additionalProperties": false,
+        "description": "Chamada de ferramenta devolvida ao cliente Ollama.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OllamaToolCallFunction"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OllamaToolCallOut",
+        "type": "object"
+      },
       "OpenAIAssistantMessage": {
         "additionalProperties": false,
         "description": "Mensagem `assistant` devolvida ao cliente.",
@@ -3503,6 +4086,211 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/chat": {
+      "post": {
+        "description": "Traduz `model`, `messages`, `tools`, `options` e `format` para o pipeline nativo. Devolve um objeto JSON ou NDJSON com `done:false` por trecho e uma linha final `done:true` (streaming é o padrão do Ollama).",
+        "operationId": "chat_api_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OllamaChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaChatResponse"
+                }
+              },
+              "application/x-ndjson": {
+                "example": "{\"model\":\"llama3.1:latest\",\"created_at\":\"2026-10-29T14:30:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Olá\"},\"done\":false}\n{\"model\":\"llama3.1:latest\",\"created_at\":\"2026-10-29T14:30:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"!\"},\"done\":false}\n{\"model\":\"llama3.1:latest\",\"created_at\":\"2026-10-29T14:30:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":12,\"eval_count\":8}\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Mensagem JSON ou stream NDJSON."
+          },
+          "400": {
+            "description": "Requisição inválida."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limit ou cota excedida."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chat no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
+    "/api/ps": {
+      "get": {
+        "description": "O gateway é stateless e não mantém modelos carregados, portanto responde sempre com `{\"models\":[]}`. A rota existe para clientes Ollama que a consultam na inicialização.",
+        "operationId": "ps_api_ps_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaPsResponse"
+                }
+              }
+            },
+            "description": "Lista vazia de modelos em execução."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Modelos em execução no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
+    "/api/show": {
+      "post": {
+        "description": "Devolve `details`, `capabilities` e `modified_at` de um Model ID canônico ou do nome do modelo. Consultar o catálogo não consome cota.",
+        "operationId": "show_api_show_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OllamaShowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaShowResponse"
+                }
+              }
+            },
+            "description": "Detalhes do modelo."
+          },
+          "400": {
+            "description": "Requisição inválida."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detalhes de um modelo no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "description": "Agrega o catálogo dos provedores habilitados. Os nomes são Model IDs canônicos (`provider/model`), aceitos de volta em `/api/chat` e `/api/show`. Consultar o catálogo não consome cota.",
+        "operationId": "tags_api_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaTagsResponse"
+                }
+              }
+            },
+            "description": "Lista de modelos instalados."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          },
+          "503": {
+            "description": "Provedores indisponíveis."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Modelos no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
     "/api/v1/admin/ai/status": {
       "get": {
         "description": "Verifica a saúde de cada provedor habilitado. Chaves e segredos nunca são expostos.",

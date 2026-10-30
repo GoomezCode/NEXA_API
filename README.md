@@ -5,7 +5,7 @@ Backend do chat de IA via web, em **Python/FastAPI**.
 - **Versão em produção:** `1.1.0` (SRS v1.2, sem banco, provedor Ollama).
 - **Versão em especificação:** `2.0.0` (SRS v2.0): gateway multi-provedor,
   compatibilidade OpenAI/Anthropic/Ollama e SQLite exclusivo para usuários.
-  F12–F14 já implementadas; F15–F17 seguem planejadas.
+  F12–F16 já implementadas; F17 (hardening e release) segue planejada.
 
 ## Documentação
 
@@ -278,7 +278,7 @@ curl -sS -X POST http://localhost:8000/api/v1/admin/usage/reset \
 
 ## Compatibilidade com APIs externas (v2.0)
 
-> OpenAI e Anthropic/Claude Code disponíveis desde as F14–F15; Ollama chega na F16.
+> OpenAI, Anthropic/Claude Code e Ollama disponíveis desde as F14–F16.
 
 OpenAI (requer `COMPAT_API_KEYS` configurado):
 
@@ -352,9 +352,10 @@ F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração, F7 Hardening,
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade e F11 Catálogo de modelos.
 
 **Concluídas (v2.0):** F12 Gateway multi-provedor, F13 SQLite de usuários,
-F14 Compatibilidade OpenAI e F15 Compatibilidade Anthropic/Claude Code.
+F14 Compatibilidade OpenAI, F15 Compatibilidade Anthropic/Claude Code e
+F16 Compatibilidade Ollama.
 
-**Planejadas (v2.0):** F16 Compat Ollama e F17 Hardening/release `v2.0.0`.
+**Planejadas (v2.0):** F17 Hardening/release `v2.0.0`.
 
 ## Release
 

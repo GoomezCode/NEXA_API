@@ -289,10 +289,10 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
 async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Padroniza exceções HTTP do Starlette/FastAPI."""
     assert isinstance(exc, StarletteHTTPException)
-    if request.url.path == "/v1" or request.url.path.startswith("/v1/"):
-        # Erros de rota da compatibilidade usam o envelope da superfície (RF-CMP-06).
-        from app.compat.errors import compat_http_exception_response
+    from app.compat.errors import compat_http_exception_response, is_compat_path
 
+    if is_compat_path(request.url.path):
+        # Erros de rota da compatibilidade usam o envelope da superfície (RF-CMP-06).
         return compat_http_exception_response(
             request,
             status_code=exc.status_code,

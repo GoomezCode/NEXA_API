@@ -14,6 +14,7 @@ from app.core.errors import ValidationErrorItem, spec_for
 
 OPENAI_PATH_PREFIX = "/v1"
 ANTHROPIC_PATH_PREFIX = "/v1/messages"
+OLLAMA_PATH_PREFIX = "/api"
 
 #: `error.type` do envelope Anthropic para cada código interno (docs §4.8).
 _ANTHROPIC_TYPES: dict[str, str] = {
@@ -155,9 +156,19 @@ def is_anthropic_path(path: str) -> bool:
     return path == ANTHROPIC_PATH_PREFIX or path.startswith(f"{ANTHROPIC_PATH_PREFIX}/")
 
 
+def is_ollama_path(path: str) -> bool:
+    """`True` para as rotas da superfície Ollama (`/api`).
+
+    `/api/v1/...` pertence à API nativa e continua usando Problem Details.
+    """
+    if path == "/api/v1" or path.startswith("/api/v1/"):
+        return False
+    return path == OLLAMA_PATH_PREFIX or path.startswith(f"{OLLAMA_PATH_PREFIX}/")
+
+
 def is_compat_path(path: str) -> bool:
     """`True` para qualquer rota de compatibilidade com envelope próprio."""
-    return is_openai_path(path) or is_anthropic_path(path)
+    return is_openai_path(path) or is_anthropic_path(path) or is_ollama_path(path)
 
 
 def anthropic_error_type(code: str, status_code: int) -> str:
@@ -246,6 +257,11 @@ def anthropic_error_payload(message: str, *, error_type: str) -> dict[str, Any]:
     }
 
 
+def ollama_error_payload(message: str) -> dict[str, Any]:
+    """Corpo `{"error": "..."}` do contrato Ollama."""
+    return {"error": message}
+
+
 def _response(
     payload: Mapping[str, Any],
     *,
@@ -266,10 +282,16 @@ async def compat_error_handler(request: Request, exc: Exception) -> JSONResponse
         headers.setdefault("WWW-Authenticate", "Bearer")
     if exc.retry_after is not None:
         headers["Retry-After"] = str(exc.retry_after)
-    payload = (
-        exc.as_anthropic_payload() if is_anthropic_path(request.url.path) else exc.as_payload()
-    )
-    return _response(payload, status_code=exc.status_code, headers=headers)
+    if is_ollama_path(request.url.path):
+        payload = ollama_error_payload(exc.message)
+        status_code = 400 if exc.status_code == 422 else exc.status_code
+    elif is_anthropic_path(request.url.path):
+        payload = exc.as_anthropic_payload()
+        status_code = exc.status_code
+    else:
+        payload = exc.as_payload()
+        status_code = exc.status_code
+    return _response(payload, status_code=status_code, headers=headers)
 
 
 def compat_validation_response(
@@ -280,6 +302,8 @@ def compat_validation_response(
     first = errors[0] if errors else None
     param = first.field if first is not None else None
     message = first.reason if first is not None else _MESSAGES["validation_error"]
+    if is_ollama_path(request.url.path):
+        return _response(ollama_error_payload(message), status_code=400)
     if is_anthropic_path(request.url.path):
         payload = anthropic_error_payload(message, error_type="invalid_request_error")
     else:
@@ -317,7 +341,9 @@ def compat_http_exception_response(
     shape = _STATUS_SHAPES.get(status_code, _ErrorShape(status_code, "api_error"))
     code = _STATUS_CODES.get(status_code, "internal_error" if status_code >= 500 else "bad_request")
     message = detail or _MESSAGES.get(code) or _MESSAGES["bad_request"]
-    if is_anthropic_path(request.url.path):
+    if is_ollama_path(request.url.path):
+        payload = ollama_error_payload(message)
+    elif is_anthropic_path(request.url.path):
         payload = anthropic_error_payload(
             message,
             error_type=anthropic_error_type(code, status_code),
@@ -329,6 +355,7 @@ def compat_http_exception_response(
 
 __all__ = [
     "ANTHROPIC_PATH_PREFIX",
+    "OLLAMA_PATH_PREFIX",
     "OPENAI_PATH_PREFIX",
     "CompatApiError",
     "anthropic_error_payload",
@@ -339,6 +366,8 @@ __all__ = [
     "compat_validation_response",
     "is_anthropic_path",
     "is_compat_path",
+    "is_ollama_path",
     "is_openai_path",
+    "ollama_error_payload",
     "openai_error_payload",
 ]
