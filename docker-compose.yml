@@ -27,6 +27,9 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    volumes:
+      # SQLite de usuários (F13): persistente e o único caminho gravável.
+      - nexa-data:/app/data
 
   # Perfil opcional: `docker compose --profile ollama up --build`
   ollama:
@@ -39,4 +42,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  nexa-data:
   ollama-data:

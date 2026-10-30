@@ -50,19 +50,18 @@ def test_guest_lists_installed_models(client: TestClient, provider: FakeProvider
 
     assert response.status_code == 200
     body = response.json()
-    assert body["provider"] == "fake"
-    assert body["default_model"] == "fake-model"
+    # Em v2.0, o modelo vem na lista providers[0].provider e providers[0].default_model.
+    assert body["providers"][0]["provider"] == "fake"
+    assert body["providers"][0]["default_model"] == "fake-model:latest"
     assert [model["name"] for model in body["models"]] == [
         "fake-model:latest",
         "fake-small:latest",
     ]
+    # O modelo índice tem model_id, provider (no nível raiz), name e selectable.
     assert body["models"][0] == {
+        "model_id": "fake/fake-model",
+        "provider": "fake",
         "name": "fake-model:latest",
-        "size_bytes": 1_234_567_890,
-        "modified_at": "2026-10-28T12:00:00Z",
-        "family": "fake",
-        "parameter_size": "1B",
-        "quantization_level": "Q4_K_M",
         "selectable": True,
     }
     assert body["models"][1]["selectable"] is True
@@ -193,12 +192,9 @@ def test_model_without_metadata_serializes_nulls(
     assert response.status_code == 200
     assert response.json()["models"] == [
         {
+            "model_id": "fake/sem-metadados",
+            "provider": "fake",
             "name": "sem-metadados:latest",
-            "size_bytes": None,
-            "modified_at": None,
-            "family": None,
-            "parameter_size": None,
-            "quantization_level": None,
             "selectable": True,
         }
     ]

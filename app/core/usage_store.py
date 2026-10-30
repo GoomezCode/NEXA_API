@@ -23,7 +23,7 @@ from app.schemas.usage import UsageInfo
 MINUTE_WINDOW_SECONDS = 60.0
 DEFAULT_PURGE_INTERVAL_SECONDS = 300.0
 
-ResetScope = Literal["gid", "ip"]
+ResetScope = Literal["gid", "ip", "uid"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,9 +59,25 @@ class IpUsage:
 class UsageStore(Protocol):
     """Interface de cotas; permite trocar a implementação sem tocar nas rotas."""
 
-    async def snapshot(self, *, role: str, subject: str, ip: str) -> UsageInfo: ...
+    async def snapshot(
+        self,
+        *,
+        role: str,
+        subject: str,
+        ip: str,
+        daily_limit: int | None = None,
+        rate_limit: int | None = None,
+    ) -> UsageInfo: ...
 
-    async def consume(self, *, role: str, subject: str, ip: str) -> UsageDecision: ...
+    async def consume(
+        self,
+        *,
+        role: str,
+        subject: str,
+        ip: str,
+        daily_limit: int | None = None,
+        rate_limit: int | None = None,
+    ) -> UsageDecision: ...
 
     async def refund(self, *, role: str, subject: str, ip: str) -> None: ...
 
@@ -76,6 +92,13 @@ class UsageStore(Protocol):
     async def start(self) -> None: ...
 
     async def aclose(self) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _Limits:
+    daily_limit: int
+    ip_daily_limit: int
+    rate_limit: int
 
 
 @dataclass(slots=True)
@@ -119,10 +142,25 @@ class InMemoryUsageStore:
         self._task: asyncio.Task[None] | None = None
 
     # --- Consulta -----------------------------------------------------------
-    async def snapshot(self, *, role: str, subject: str, ip: str) -> UsageInfo:
+    async def snapshot(
+        self,
+        *,
+        role: str,
+        subject: str,
+        ip: str,
+        daily_limit: int | None = None,
+        rate_limit: int | None = None,
+    ) -> UsageInfo:
         """Limites e uso restante sem consumir cota."""
         async with self._lock:
-            return self._snapshot(role=role, subject=subject, ip=ip, now=self._now())
+            return self._snapshot(
+                role=role,
+                subject=subject,
+                ip=ip,
+                now=self._now(),
+                daily_limit=daily_limit,
+                rate_limit=rate_limit,
+            )
 
     async def list_guests(self) -> list[GuestUsage]:
         """Guests conhecidos (com pelo menos uma requisição de chat)."""
@@ -156,19 +194,27 @@ class InMemoryUsageStore:
         return sorted(entries, key=lambda item: (-item.daily_used, item.ip))
 
     # --- Consumo/devolução --------------------------------------------------
-    async def consume(self, *, role: str, subject: str, ip: str) -> UsageDecision:
+    async def consume(
+        self,
+        *,
+        role: str,
+        subject: str,
+        ip: str,
+        daily_limit: int | None = None,
+        rate_limit: int | None = None,
+    ) -> UsageDecision:
         """Consome 1 unidade de forma atômica, verificando todas as cotas."""
         async with self._lock:
             now = self._now()
             if role == "admin":
-                return self._consume_admin(subject=subject, now=now)
+                return self._consume_admin(subject=subject, now=now, rate_limit=rate_limit)
 
             today = now.date()
             gid_used = self._daily_used(self._gid_daily, subject, today)
-            ip_used = self._daily_used(self._ip_daily, ip, today)
+            limits = self._limits_for(role, daily_limit=daily_limit, rate_limit=rate_limit)
 
             # RF-USO-01/04 e RN-15: o gid tem prioridade quando ambos esgotaram.
-            if gid_used >= self._guest_daily_limit:
+            if role == "guest" and gid_used >= limits.daily_limit:
                 return self._denied(
                     "guest_daily_limit_reached",
                     role=role,
@@ -176,20 +222,34 @@ class InMemoryUsageStore:
                     ip=ip,
                     now=now,
                     retry_at=daily_reset_at(now),
+                    limits=limits,
                 )
-            if ip_used >= self._ip_daily_limit:
+            if role == "user" and gid_used >= limits.daily_limit:
                 return self._denied(
-                    "ip_daily_limit_reached",
+                    "user_daily_limit_reached",
                     role=role,
                     subject=subject,
                     ip=ip,
                     now=now,
                     retry_at=daily_reset_at(now),
+                    limits=limits,
                 )
+            if role == "guest":
+                ip_used = self._daily_used(self._ip_daily, ip, today)
+                if ip_used >= limits.ip_daily_limit:
+                    return self._denied(
+                        "ip_daily_limit_reached",
+                        role=role,
+                        subject=subject,
+                        ip=ip,
+                        now=now,
+                        retry_at=daily_reset_at(now),
+                        limits=limits,
+                    )
 
             key = self._minute_key(role, subject)
             marks = self._prune_minute(key, now)
-            if len(marks) >= self._guest_rate:
+            if len(marks) >= limits.rate_limit:
                 retry_at = datetime.fromtimestamp(marks[0] + MINUTE_WINDOW_SECONDS, tz=UTC)
                 return self._denied(
                     "rate_limited",
@@ -198,32 +258,42 @@ class InMemoryUsageStore:
                     ip=ip,
                     now=now,
                     retry_at=retry_at,
+                    limits=limits,
                 )
 
             self._increment(self._gid_daily, subject, today)
-            self._increment(self._ip_daily, ip, today)
+            if role == "guest":
+                self._increment(self._ip_daily, ip, today)
+                self._guests[subject] = _GuestRecord(ip=ip, last_seen=now)
             marks.append(now.timestamp())
-            self._guests[subject] = _GuestRecord(ip=ip, last_seen=now)
             return UsageDecision(
                 allowed=True,
-                usage=self._snapshot(role=role, subject=subject, ip=ip, now=now),
+                usage=self._snapshot(
+                    role=role,
+                    subject=subject,
+                    ip=ip,
+                    now=now,
+                    daily_limit=daily_limit,
+                    rate_limit=rate_limit,
+                ),
             )
 
     async def refund(self, *, role: str, subject: str, ip: str) -> None:
-        """Devolve 1 unidade diária ao gid e ao IP (RF-USO-05)."""
-        if role != "guest":
+        """Devolve 1 unidade diária ao `gid`/`uid` (e ao IP, no guest)."""
+        if role not in {"guest", "user"}:
             return
         async with self._lock:
             today = self._now().date()
             self._decrement(self._gid_daily, subject, today)
-            self._decrement(self._ip_daily, ip, today)
+            if role == "guest":
+                self._decrement(self._ip_daily, ip, today)
 
     # --- Administração ------------------------------------------------------
     async def reset(self, *, scope: ResetScope, value: str) -> bool:
-        """Zera a cota diária de um `gid` ou IP; `False` se não existir."""
+        """Zera a cota diária de um `gid`, IP ou `uid`; `False` se não existir."""
         async with self._lock:
             today = self._now().date()
-            counters = self._gid_daily if scope == "gid" else self._ip_daily
+            counters = self._ip_daily if scope == "ip" else self._gid_daily
             counter = counters.get(value)
             if counter is None or counter.day != today:
                 return False
@@ -291,21 +361,26 @@ class InMemoryUsageStore:
     def _now(self) -> datetime:
         return self._clock.now().astimezone(UTC)
 
-    def _consume_admin(self, *, subject: str, now: datetime) -> UsageDecision:
+    def _consume_admin(
+        self, *, subject: str, now: datetime, rate_limit: int | None
+    ) -> UsageDecision:
+        limit = rate_limit if rate_limit is not None else self._admin_rate
         key = self._minute_key("admin", subject)
         marks = self._prune_minute(key, now)
-        if len(marks) >= self._admin_rate:
+        if len(marks) >= limit:
             retry_at = datetime.fromtimestamp(marks[0] + MINUTE_WINDOW_SECONDS, tz=UTC)
             return UsageDecision(
                 allowed=False,
-                usage=self._snapshot(role="admin", subject=subject, ip="", now=now),
+                usage=self._snapshot(
+                    role="admin", subject=subject, ip="", now=now, rate_limit=limit
+                ),
                 code="rate_limited",
                 retry_after=seconds_until(retry_at, now=now),
             )
         marks.append(now.timestamp())
         return UsageDecision(
             allowed=True,
-            usage=self._snapshot(role="admin", subject=subject, ip="", now=now),
+            usage=self._snapshot(role="admin", subject=subject, ip="", now=now, rate_limit=limit),
         )
 
     def _denied(
@@ -317,40 +392,77 @@ class InMemoryUsageStore:
         ip: str,
         now: datetime,
         retry_at: datetime,
+        limits: _Limits,
     ) -> UsageDecision:
         return UsageDecision(
             allowed=False,
-            usage=self._snapshot(role=role, subject=subject, ip=ip, now=now),
+            usage=self._snapshot(
+                role=role,
+                subject=subject,
+                ip=ip,
+                now=now,
+                daily_limit=limits.daily_limit if role == "user" else None,
+                rate_limit=limits.rate_limit if role == "user" else None,
+            ),
             code=code,
             retry_after=seconds_until(retry_at, now=now),
         )
 
-    def _snapshot(self, *, role: str, subject: str, ip: str, now: datetime) -> UsageInfo:
+    def _limits_for(self, role: str, *, daily_limit: int | None, rate_limit: int | None) -> _Limits:
+        if role == "user":
+            return _Limits(
+                daily_limit=(
+                    self._settings.test_user_default_daily_messages
+                    if daily_limit is None
+                    else daily_limit
+                ),
+                ip_daily_limit=0,
+                rate_limit=(
+                    self._settings.test_user_default_rate_per_min
+                    if rate_limit is None
+                    else rate_limit
+                ),
+            )
+        return _Limits(
+            daily_limit=self._guest_daily_limit,
+            ip_daily_limit=self._ip_daily_limit,
+            rate_limit=self._guest_rate,
+        )
+
+    def _snapshot(
+        self,
+        *,
+        role: str,
+        subject: str,
+        ip: str,
+        now: datetime,
+        daily_limit: int | None = None,
+        rate_limit: int | None = None,
+    ) -> UsageInfo:
         if role == "admin":
+            limit = rate_limit if rate_limit is not None else self._admin_rate
             marks = self._peek_minute(self._minute_key(role, subject), now)
             return UsageInfo(
                 daily_limit=None,
                 daily_remaining=None,
-                per_minute_limit=self._admin_rate,
-                per_minute_remaining=max(0, self._admin_rate - marks),
+                per_minute_limit=limit,
+                per_minute_remaining=max(0, limit - marks),
                 resets_at=None,
             )
 
+        limits = self._limits_for(role, daily_limit=daily_limit, rate_limit=rate_limit)
         today = now.date()
         gid_used = self._daily_used(self._gid_daily, subject, today)
-        ip_used = self._daily_used(self._ip_daily, ip, today)
         minute_used = self._peek_minute(self._minute_key(role, subject), now)
+        daily_remaining = max(0, limits.daily_limit - gid_used)
+        if role == "guest":
+            ip_used = self._daily_used(self._ip_daily, ip, today)
+            daily_remaining = min(daily_remaining, max(0, limits.ip_daily_limit - ip_used))
         return UsageInfo(
-            daily_limit=self._guest_daily_limit,
-            daily_remaining=max(
-                0,
-                min(
-                    self._guest_daily_limit - gid_used,
-                    self._ip_daily_limit - ip_used,
-                ),
-            ),
-            per_minute_limit=self._guest_rate,
-            per_minute_remaining=max(0, self._guest_rate - minute_used),
+            daily_limit=limits.daily_limit,
+            daily_remaining=daily_remaining,
+            per_minute_limit=limits.rate_limit,
+            per_minute_remaining=max(0, limits.rate_limit - minute_used),
             resets_at=daily_reset_at(now),
         )
 

@@ -39,8 +39,11 @@ def _usage_store(request: Request) -> UsageStore:
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="Login do administrador",
-    description="Valida usuário e senha e devolve um access token JWT.",
+    summary="Login do administrador ou usuário de teste",
+    description=(
+        "Valida usuário e senha (admin pela configuração, usuário de teste pelo SQLite) "
+        "e devolve um access token JWT."
+    ),
     responses={
         status.HTTP_401_UNAUTHORIZED: {"description": "Credenciais inválidas."},
         status.HTTP_429_TOO_MANY_REQUESTS: {"description": "Login temporariamente bloqueado."},
@@ -60,14 +63,19 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
         )
 
     try:
-        await _auth_service(request).authenticate(payload.username, payload.password)
+        identity = await _auth_service(request).authenticate(payload.username, payload.password)
     except ApiError:
         await limiter.register_failure(ip)
         raise
 
     await limiter.reset(ip)
-    token, expires_in = _auth_service(request).issue_admin_token()
-    return TokenResponse(access_token=token, expires_in=expires_in, role="admin")
+    token, expires_in = _auth_service(request).issue_token(identity)
+    return TokenResponse(
+        access_token=token,
+        expires_in=expires_in,
+        role=identity.role,
+        user_id=identity.user_id,
+    )
 
 
 @router.post(

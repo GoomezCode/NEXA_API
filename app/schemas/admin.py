@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-ResetScope = Literal["gid", "ip"]
+ResetScope = Literal["gid", "ip", "uid"]
 
 
 def _iso_utc(value: datetime) -> str:
@@ -43,6 +43,23 @@ class StatsResponse(BaseModel):
         return _iso_utc(value)
 
 
+class ProviderStatus(BaseModel):
+    """Saúde de um provedor habilitado (RF-ADM-03)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(description="Nome do provedor no registry.")
+    label: str = Field(description="Rótulo humano do provedor.")
+    default_model: str = Field(description="Modelo padrão do provedor.")
+    available: bool = Field(description="Resultado da última verificação de saúde.")
+    checked_at: datetime = Field(description="Instante da verificação, em UTC.")
+    error: str | None = Field(default=None, description="Código do erro, quando indisponível.")
+
+    @field_serializer("checked_at")
+    def _serialize_checked_at(self, value: datetime) -> str:
+        return _iso_utc(value)
+
+
 class AiStatusResponse(BaseModel):
     """Corpo de `GET /admin/ai/status` (nunca expõe chaves)."""
 
@@ -50,22 +67,21 @@ class AiStatusResponse(BaseModel):
         extra="forbid",
         json_schema_extra={
             "example": {
-                "provider": "ollama",
-                "model": "llama3.1",
-                "available": True,
-                "checked_at": "2026-10-28T14:30:00Z",
+                "providers": [
+                    {
+                        "provider": "ollama",
+                        "label": "Ollama local",
+                        "default_model": "llama3.1:latest",
+                        "available": True,
+                        "checked_at": "2026-10-29T14:30:00Z",
+                        "error": None,
+                    }
+                ]
             }
         },
     )
 
-    provider: str = Field(description="Nome do provedor ativo.")
-    model: str = Field(description="Modelo configurado.")
-    available: bool = Field(description="Resultado da última verificação de saúde.")
-    checked_at: datetime = Field(description="Instante da verificação, em UTC.")
-
-    @field_serializer("checked_at")
-    def _serialize_checked_at(self, value: datetime) -> str:
-        return _iso_utc(value)
+    providers: list[ProviderStatus] = Field(description="Status de cada provedor habilitado.")
 
 
 class GuestEntry(BaseModel):
@@ -132,11 +148,11 @@ class ResetRequest(BaseModel):
         },
     )
 
-    scope: ResetScope = Field(description="Alvo do reset: `gid` ou `ip`.")
+    scope: ResetScope = Field(description="Alvo do reset: `gid`, `ip` ou `uid`.")
     value: str = Field(
         min_length=1,
         max_length=256,
-        description="`gid` ou IP cuja cota diária será zerada.",
+        description="`gid`, IP ou `uid` cuja cota diária será zerada.",
     )
 
 
@@ -145,6 +161,7 @@ __all__ = [
     "GuestEntry",
     "GuestsResponse",
     "IpUsageEntry",
+    "ProviderStatus",
     "ResetRequest",
     "ResetScope",
     "StatsResponse",

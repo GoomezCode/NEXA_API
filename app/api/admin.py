@@ -7,21 +7,24 @@ from typing import cast
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from app.ai.base import AIProvider
+from app.ai.router import ProviderRouter
 from app.api.deps import require_admin
-from app.core.clock import Clock
 from app.core.errors import ApiError
 from app.core.logging import get_logger
 from app.core.stats import UsageStats
 from app.core.usage_store import UsageStore
+from app.core.users import UserService
+from app.db.connection import Database
 from app.schemas.admin import (
     AiStatusResponse,
     GuestEntry,
     GuestsResponse,
     IpUsageEntry,
+    ProviderStatus,
     ResetRequest,
     StatsResponse,
 )
+from app.schemas.users import DbStatusResponse
 
 router = APIRouter(
     prefix="/api/v1/admin",
@@ -48,28 +51,67 @@ async def get_stats(request: Request) -> StatsResponse:
 
 
 @router.get(
+    "/db/status",
+    response_model=DbStatusResponse,
+    summary="Status e latência do SQLite",
+    description=(
+        "Expõe caminho, tamanho, WAL, versão de migração, contagem de usuários e "
+        "latências p95 de leitura/escrita. Nunca retorna conteúdo sensível."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Banco indisponível."},
+    },
+)
+async def database_status(request: Request) -> DbStatusResponse:
+    database: Database | None = getattr(request.app.state, "database", None)
+    users = cast(UserService, request.app.state.user_service)
+    if database is None or not database.is_open:
+        raise ApiError("database_unavailable")
+    try:
+        total, test_total = await users.stats()
+        return DbStatusResponse(
+            status="ok",
+            path=str(database.path),
+            size_bytes=database.file_size(),
+            wal=(await database.journal_mode()) == "wal",
+            migration_version=await database.migration_version(),
+            users_total=total,
+            test_users_total=test_total,
+            read_latency_ms_p95=database.read_latency_ms_p95,
+            write_latency_ms_p95=database.write_latency_ms_p95,
+        )
+    except ApiError:
+        raise
+    except Exception as exc:  # pragma: no cover - SQLite inesperado
+        logger.warning("database_status_failed")
+        raise ApiError("database_unavailable") from exc
+
+
+@router.get(
     "/ai/status",
     response_model=AiStatusResponse,
-    summary="Status do provedor de IA",
+    summary="Status dos provedores de IA",
     description=(
-        "Informa provedor, modelo e disponibilidade. Chaves e segredos nunca são expostos."
+        "Verifica a saúde de cada provedor habilitado. Chaves e segredos nunca são expostos."
     ),
     responses={status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."}},
 )
 async def ai_status(request: Request) -> AiStatusResponse:
-    provider = cast(AIProvider, request.app.state.ai_provider)
-    clock = cast(Clock, request.app.state.clock)
-
-    try:
-        available = bool(await provider.health())
-    except Exception:
-        available = False
-
+    ai_router = cast(ProviderRouter, request.app.state.ai_router)
+    health = await ai_router.list_health()
     return AiStatusResponse(
-        provider=provider.name,
-        model=provider.model,
-        available=available,
-        checked_at=clock.now(),
+        providers=[
+            ProviderStatus(
+                provider=item.provider,
+                label=item.label,
+                default_model=item.default_model,
+                available=item.available,
+                checked_at=item.checked_at,
+                error=item.error,
+            )
+            for item in health
+        ]
     )
 
 
@@ -113,15 +155,15 @@ async def list_guests(request: Request) -> GuestsResponse:
     "/usage/reset",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
-    summary="Zera a cota de um guest ou IP",
+    summary="Zera a cota de um guest, IP ou usuário",
     description=(
-        "Zera a cota diária do `gid` ou do IP informado. Alvo inexistente "
+        "Zera a cota diária do `gid`, do IP ou do `uid` informado. Alvo inexistente "
         "retorna `404` (`not_found`)."
     ),
     responses={
         status.HTTP_204_NO_CONTENT: {"description": "Cota zerada."},
         status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
-        status.HTTP_404_NOT_FOUND: {"description": "`gid` ou IP sem cota ativa."},
+        status.HTTP_404_NOT_FOUND: {"description": "`gid`, IP ou `uid` sem cota ativa."},
     },
 )
 async def reset_usage(payload: ResetRequest, request: Request) -> Response:

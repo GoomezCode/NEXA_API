@@ -3,20 +3,36 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Protocol
 
+from app.ai.base import MessageRole
 from app.config import Settings
 from app.core.errors import ValidationErrorItem
 from app.core.security import Role
-from app.schemas.chat import ChatMessageInput
+
+
+class ContextMessage(Protocol):
+    """Mensagem mínima aceita pelas regras de contexto (nativa ou compatível)."""
+
+    @property
+    def role(self) -> MessageRole: ...
+
+    @property
+    def content(self) -> str: ...
 
 
 def context_errors(
-    messages: Sequence[ChatMessageInput],
+    messages: Sequence[ContextMessage],
     *,
     role: Role,
     settings: Settings,
+    allow_system: bool = False,
 ) -> list[ValidationErrorItem]:
-    """Valida limites e mensagens `system` do papel do chamador."""
+    """Valida limites e mensagens `system` do papel do chamador.
+
+    `allow_system` é usado pelas superfícies de compatibilidade, onde o campo
+    `system` faz parte do protocolo externo (ex.: Anthropic/Claude Code).
+    """
     errors: list[ValidationErrorItem] = []
     max_messages, max_chars = limits_for(role=role, settings=settings)
 
@@ -42,7 +58,7 @@ def context_errors(
         None,
     )
     for index, message in enumerate(messages):
-        if message.role != "system":
+        if message.role != "system" or allow_system:
             continue
         if role == "guest":
             errors.append(
@@ -76,4 +92,4 @@ def limits_for(*, role: Role, settings: Settings) -> tuple[int, int]:
     return settings.guest_max_messages_per_request, settings.guest_max_message_chars
 
 
-__all__ = ["context_errors", "limits_for"]
+__all__ = ["ContextMessage", "context_errors", "limits_for"]

@@ -5,40 +5,684 @@
         "additionalProperties": false,
         "description": "Corpo de `GET /admin/ai/status` (nunca expõe chaves).",
         "example": {
-          "available": true,
-          "checked_at": "2026-10-28T14:30:00Z",
-          "model": "llama3.1",
-          "provider": "ollama"
+          "providers": [
+            {
+              "available": true,
+              "checked_at": "2026-10-29T14:30:00Z",
+              "default_model": "llama3.1:latest",
+              "label": "Ollama local",
+              "provider": "ollama"
+            }
+          ]
         },
         "properties": {
-          "available": {
-            "description": "Resultado da última verificação de saúde.",
-            "title": "Available",
-            "type": "boolean"
+          "providers": {
+            "description": "Status de cada provedor habilitado.",
+            "items": {
+              "$ref": "#/components/schemas/ProviderStatus"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "title": "AiStatusResponse",
+        "type": "object"
+      },
+      "AnthropicContentBlock": {
+        "additionalProperties": true,
+        "description": "Bloco de conteúdo de `messages[].content` ou `system`.\n\nO modelo é permissivo de propósito: tipos desconhecidos são rejeitados na\ntradução com `400 invalid_request_error`, mantendo a mensagem do contrato\nAnthropic em vez do 422 genérico do FastAPI.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
           },
-          "checked_at": {
-            "description": "Instante da verificação, em UTC.",
-            "title": "Checked At",
-            "type": "string"
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
           },
-          "model": {
-            "description": "Modelo configurado.",
-            "title": "Model",
-            "type": "string"
+          "input": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input"
           },
-          "provider": {
-            "description": "Nome do provedor ativo.",
-            "title": "Provider",
+          "is_error": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Error"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "tool_use_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Use Id"
+          },
+          "type": {
+            "title": "Type",
             "type": "string"
           }
         },
         "required": [
-          "provider",
-          "model",
-          "available",
-          "checked_at"
+          "type"
         ],
-        "title": "AiStatusResponse",
+        "title": "AnthropicContentBlock",
+        "type": "object"
+      },
+      "AnthropicCountTokensRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /v1/messages/count_tokens`.",
+        "example": {
+          "messages": [
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "model": "anthropic/claude-sonnet-4-5",
+          "system": "Você é um assistente útil."
+        },
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AnthropicMessage"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicContentBlock"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnthropicToolChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicTool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "AnthropicCountTokensRequest",
+        "type": "object"
+      },
+      "AnthropicCountTokensResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /v1/messages/count_tokens`.",
+        "example": {
+          "input_tokens": 42
+        },
+        "properties": {
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens"
+        ],
+        "title": "AnthropicCountTokensResponse",
+        "type": "object"
+      },
+      "AnthropicMessage": {
+        "additionalProperties": true,
+        "description": "Mensagem de entrada (`user` ou `assistant`).",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicContentBlock"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Content"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "AnthropicMessage",
+        "type": "object"
+      },
+      "AnthropicMessageRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /v1/messages`.",
+        "example": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "metadata": {
+            "user_id": "usuario-123"
+          },
+          "model": "anthropic/claude-sonnet-4-5",
+          "stop_sequences": [
+            "\n\nHuman:"
+          ],
+          "stream": false,
+          "system": "Você é um assistente útil.",
+          "temperature": 0.7,
+          "top_k": 40,
+          "top_p": 1.0
+        },
+        "properties": {
+          "max_tokens": {
+            "minimum": 1.0,
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AnthropicMessage"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "stop_sequences": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Sequences"
+          },
+          "stream": {
+            "default": false,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicContentBlock"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnthropicToolChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicTool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          }
+        },
+        "required": [
+          "model",
+          "messages",
+          "max_tokens"
+        ],
+        "title": "AnthropicMessageRequest",
+        "type": "object"
+      },
+      "AnthropicMessageResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /v1/messages` (CA-34).",
+        "example": {
+          "content": [
+            {
+              "text": "Olá! Como posso ajudar?",
+              "type": "text"
+            }
+          ],
+          "id": "msg_nexa_0192f3a4000070008000",
+          "model": "claude-sonnet-4-5",
+          "role": "assistant",
+          "stop_reason": "end_turn",
+          "type": "message",
+          "usage": {
+            "input_tokens": 12,
+            "output_tokens": 8
+          }
+        },
+        "properties": {
+          "content": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "text": "#/components/schemas/AnthropicTextBlock",
+                  "tool_use": "#/components/schemas/AnthropicToolUseBlock"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AnthropicTextBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AnthropicToolUseBlock"
+                }
+              ]
+            },
+            "title": "Content",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "stop_reason": {
+            "enum": [
+              "end_turn",
+              "max_tokens",
+              "stop_sequence",
+              "tool_use"
+            ],
+            "title": "Stop Reason",
+            "type": "string"
+          },
+          "stop_sequence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Sequence"
+          },
+          "type": {
+            "const": "message",
+            "default": "message",
+            "title": "Type",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/AnthropicUsage"
+          }
+        },
+        "required": [
+          "id",
+          "model",
+          "content",
+          "stop_reason",
+          "usage"
+        ],
+        "title": "AnthropicMessageResponse",
+        "type": "object"
+      },
+      "AnthropicTextBlock": {
+        "additionalProperties": false,
+        "description": "Bloco `text` da resposta.",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text",
+            "default": "text",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AnthropicTextBlock",
+        "type": "object"
+      },
+      "AnthropicTool": {
+        "additionalProperties": true,
+        "description": "Ferramenta declarada no contrato Anthropic (`input_schema`).",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AnthropicTool",
+        "type": "object"
+      },
+      "AnthropicToolChoice": {
+        "additionalProperties": true,
+        "description": "`tool_choice`: `auto`, `any`, `tool` ou `none`.",
+        "properties": {
+          "disable_parallel_tool_use": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disable Parallel Tool Use"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "any",
+              "tool",
+              "none"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "AnthropicToolChoice",
+        "type": "object"
+      },
+      "AnthropicToolUseBlock": {
+        "additionalProperties": false,
+        "description": "Bloco `tool_use` da resposta (execução é do cliente).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "const": "tool_use",
+            "default": "tool_use",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AnthropicToolUseBlock",
+        "type": "object"
+      },
+      "AnthropicUsage": {
+        "additionalProperties": false,
+        "description": "Tokens de entrada/saída, no shape Anthropic.",
+        "properties": {
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "AnthropicUsage",
         "type": "object"
       },
       "AssistantMessage": {
@@ -54,12 +698,126 @@
             "default": "assistant",
             "title": "Role",
             "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ToolCallOut"
+            },
+            "title": "Tool Calls",
+            "type": "array"
           }
         },
         "required": [
           "content"
         ],
         "title": "AssistantMessage",
+        "type": "object"
+      },
+      "BulkCreateRequest": {
+        "additionalProperties": false,
+        "description": "Corpo de `POST /admin/users/bulk` (RF-USR-06, RF-ADM-10).",
+        "example": {
+          "count": 20,
+          "daily_message_limit": 50,
+          "expires_at": "2026-11-05T14:30:00Z",
+          "prefix": "teste",
+          "rate_per_min": 5
+        },
+        "properties": {
+          "count": {
+            "description": "Quantidade de usuários (respeita o teto).",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "daily_message_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Message Limit"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "prefix": {
+            "description": "Prefixo dos usernames sequenciais.",
+            "maxLength": 56,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,55}$",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "rate_per_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Per Min"
+          }
+        },
+        "required": [
+          "prefix",
+          "count"
+        ],
+        "title": "BulkCreateRequest",
+        "type": "object"
+      },
+      "BulkCreateResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /admin/users/bulk` (credenciais uma única vez).",
+        "example": {
+          "users": [
+            {
+              "created_at": "2026-10-29T14:30:00Z",
+              "daily_message_limit": 50,
+              "expires_at": "2026-11-05T14:30:00Z",
+              "id": "0192f3a4-0000-7000-8000-000000000001",
+              "is_active": true,
+              "is_protected": false,
+              "is_test": true,
+              "password": "Nxa-exemplo-de-senha-gerada",
+              "rate_per_min": 5,
+              "role": "user",
+              "updated_at": "2026-10-29T14:30:00Z",
+              "username": "teste01",
+              "username_display": "teste01"
+            }
+          ]
+        },
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/UserCreateResponse"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "title": "BulkCreateResponse",
         "type": "object"
       },
       "ChatMessageInput": {
@@ -74,10 +832,23 @@
             "enum": [
               "system",
               "user",
-              "assistant"
+              "assistant",
+              "tool"
             ],
             "title": "Role",
             "type": "string"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ID da chamada respondida.",
+            "title": "Tool Call Id"
           }
         },
         "required": [
@@ -97,8 +868,10 @@
               "role": "user"
             }
           ],
-          "model": "llama3.1:latest",
-          "stream": false
+          "model": "ollama/llama3.1",
+          "stream": false,
+          "tool_choice": "auto",
+          "tools": []
         },
         "properties": {
           "messages": {
@@ -120,13 +893,45 @@
                 "type": "null"
               }
             ],
-            "description": "Modelo instalado no Ollama para esta requisição. Omitido, usa o modelo padrão do servidor (`OLLAMA_MODEL`).",
+            "description": "Model ID `provider/model` ou alias. Omitido, usa `AI_DEFAULT_MODEL`.",
             "title": "Model"
           },
           "stream": {
             "default": true,
             "title": "Stream",
             "type": "boolean"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`auto`, `none`, `required` ou o nome de uma ferramenta.",
+            "title": "Tool Choice"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ToolDefinition"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ferramentas disponíveis; exige a capacidade `tools`.",
+            "title": "Tools"
           }
         },
         "required": [
@@ -142,10 +947,16 @@
           "finish_reason": "stop",
           "message": {
             "content": "SSE envia eventos incrementais.",
-            "role": "assistant"
+            "role": "assistant",
+            "tool_calls": []
           },
-          "model": "llama3.1",
+          "model": "llama3.1:latest",
+          "model_id": "ollama/llama3.1",
           "provider": "ollama",
+          "provider_usage": {
+            "completion_tokens": 128,
+            "prompt_tokens": 42
+          },
           "usage": {
             "daily_limit": 10,
             "daily_remaining": 9,
@@ -159,7 +970,8 @@
             "enum": [
               "stop",
               "length",
-              "timeout"
+              "timeout",
+              "tool_use"
             ],
             "title": "Finish Reason",
             "type": "string"
@@ -171,9 +983,16 @@
             "title": "Model",
             "type": "string"
           },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
           "provider": {
             "title": "Provider",
             "type": "string"
+          },
+          "provider_usage": {
+            "$ref": "#/components/schemas/ProviderUsage"
           },
           "usage": {
             "$ref": "#/components/schemas/UsageInfo"
@@ -183,10 +1002,162 @@
           "message",
           "provider",
           "model",
+          "model_id",
           "finish_reason",
+          "provider_usage",
           "usage"
         ],
         "title": "ChatResponse",
+        "type": "object"
+      },
+      "CleanupResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /admin/users/cleanup`.",
+        "example": {
+          "removed": 3
+        },
+        "properties": {
+          "removed": {
+            "description": "Usuários de teste expirados removidos.",
+            "minimum": 0.0,
+            "title": "Removed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "CleanupResponse",
+        "type": "object"
+      },
+      "DbHealthResponse": {
+        "additionalProperties": false,
+        "description": "Corpo de `GET /health/db` (RF-SIS-06).",
+        "example": {
+          "migration_version": 2,
+          "request_id": "b1f4c7e2-6f0f-4c39-9e57-6a1f0f0b8f4d",
+          "status": "ok",
+          "wal": true
+        },
+        "properties": {
+          "migration_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Maior versão de migração aplicada.",
+            "title": "Migration Version"
+          },
+          "request_id": {
+            "description": "Identificador da requisição (RF-SIS-03).",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "wal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Se o WAL está ativo.",
+            "title": "Wal"
+          }
+        },
+        "required": [
+          "status",
+          "request_id"
+        ],
+        "title": "DbHealthResponse",
+        "type": "object"
+      },
+      "DbStatusResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /admin/db/status` (RF-ADM-07).",
+        "example": {
+          "migration_version": 2,
+          "path": "./data/nexa.db",
+          "read_latency_ms_p95": 0.8,
+          "size_bytes": 286720,
+          "status": "ok",
+          "test_users_total": 41,
+          "users_total": 42,
+          "wal": true,
+          "write_latency_ms_p95": 2.1
+        },
+        "properties": {
+          "migration_version": {
+            "description": "Maior versão de migração aplicada.",
+            "title": "Migration Version",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Caminho do arquivo SQLite.",
+            "title": "Path",
+            "type": "string"
+          },
+          "read_latency_ms_p95": {
+            "description": "p95 das leituras desde o boot (ms).",
+            "title": "Read Latency Ms P95",
+            "type": "number"
+          },
+          "size_bytes": {
+            "description": "Tamanho do arquivo principal.",
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Estado do banco (`ok`).",
+            "title": "Status",
+            "type": "string"
+          },
+          "test_users_total": {
+            "description": "Total de usuários de teste.",
+            "title": "Test Users Total",
+            "type": "integer"
+          },
+          "users_total": {
+            "description": "Total de usuários.",
+            "title": "Users Total",
+            "type": "integer"
+          },
+          "wal": {
+            "description": "Se o journaling WAL está ativo.",
+            "title": "Wal",
+            "type": "boolean"
+          },
+          "write_latency_ms_p95": {
+            "description": "p95 das escritas desde o boot (ms).",
+            "title": "Write Latency Ms P95",
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "path",
+          "size_bytes",
+          "wal",
+          "migration_version",
+          "users_total",
+          "test_users_total",
+          "read_latency_ms_p95",
+          "write_latency_ms_p95"
+        ],
+        "title": "DbStatusResponse",
         "type": "object"
       },
       "GuestEntry": {
@@ -268,6 +1239,18 @@
           },
           "usage": {
             "$ref": "#/components/schemas/UsageInfo"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID do admin ou do usuário de teste; `null` para guest.",
+            "title": "User Id"
           }
         },
         "required": [
@@ -341,7 +1324,7 @@
         "example": {
           "request_id": "b1f4c7e2-6f0f-4c39-9e57-6a1f0f0b8f4d",
           "status": "ok",
-          "version": "1.1.0"
+          "version": "2.0.0"
         },
         "properties": {
           "request_id": {
@@ -426,8 +1409,28 @@
       },
       "ModelEntry": {
         "additionalProperties": false,
-        "description": "Modelo instalado no provedor de IA.",
+        "description": "Modelo disponível em um provedor.",
         "properties": {
+          "capabilities": {
+            "description": "Capacidades habilitadas: `chat`, `stream`, `tools`, `vision`, `json_mode`.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "context_window": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Janela de contexto, em tokens.",
+            "title": "Context Window"
+          },
           "family": {
             "anyOf": [
               {
@@ -439,6 +1442,11 @@
             ],
             "description": "Família do modelo.",
             "title": "Family"
+          },
+          "model_id": {
+            "description": "Model ID canônico `provider/model`.",
+            "title": "Model Id",
+            "type": "string"
           },
           "modified_at": {
             "anyOf": [
@@ -453,7 +1461,7 @@
             "title": "Modified At"
           },
           "name": {
-            "description": "Nome completo, incluindo a tag (ex.: `llama3.1:latest`).",
+            "description": "Nome completo no provedor (ex.: `llama3.1:latest`).",
             "title": "Name",
             "type": "string"
           },
@@ -500,67 +1508,1598 @@
           }
         },
         "required": [
+          "model_id",
           "name",
+          "capabilities",
           "selectable"
         ],
         "title": "ModelEntry",
+        "type": "object"
+      },
+      "ModelIndexEntry": {
+        "additionalProperties": false,
+        "description": "Índice plano para clientes simples.",
+        "properties": {
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "selectable": {
+            "title": "Selectable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model_id",
+          "provider",
+          "name",
+          "selectable"
+        ],
+        "title": "ModelIndexEntry",
         "type": "object"
       },
       "ModelsResponse": {
         "additionalProperties": false,
         "description": "Corpo de `GET /api/v1/models`.",
         "example": {
-          "default_model": "llama3.1:latest",
+          "default_model": "ollama/llama3.1",
           "models": [
             {
-              "family": "llama",
-              "modified_at": "2026-10-28T14:30:00Z",
+              "model_id": "ollama/llama3.1",
               "name": "llama3.1:latest",
-              "parameter_size": "8.0B",
-              "quantization_level": "Q4_K_M",
-              "selectable": true,
-              "size_bytes": 4920739055
+              "provider": "ollama",
+              "selectable": true
             }
           ],
-          "provider": "ollama"
+          "providers": [
+            {
+              "available": true,
+              "default_model": "llama3.1:latest",
+              "models": [
+                {
+                  "capabilities": [
+                    "chat",
+                    "stream",
+                    "tools"
+                  ],
+                  "context_window": 131072,
+                  "family": "llama",
+                  "model_id": "ollama/llama3.1",
+                  "modified_at": "2026-10-28T14:30:00Z",
+                  "name": "llama3.1:latest",
+                  "parameter_size": "8.0B",
+                  "quantization_level": "Q4_K_M",
+                  "selectable": true,
+                  "size_bytes": 4920739055
+                }
+              ],
+              "name": "Ollama local",
+              "provider": "ollama"
+            }
+          ]
         },
         "properties": {
           "default_model": {
-            "description": "Modelo usado quando `model` é omitido no chat.",
+            "description": "Model ID usado quando `model` é omitido no chat.",
             "title": "Default Model",
             "type": "string"
           },
           "models": {
-            "description": "Modelos instalados, ordenados por nome.",
+            "description": "Índice plano de todos os modelos.",
+            "items": {
+              "$ref": "#/components/schemas/ModelIndexEntry"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "providers": {
+            "description": "Catálogo completo por provedor.",
+            "items": {
+              "$ref": "#/components/schemas/ProviderModels"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "default_model",
+          "providers",
+          "models"
+        ],
+        "title": "ModelsResponse",
+        "type": "object"
+      },
+      "OllamaChatMessage": {
+        "additionalProperties": false,
+        "description": "Mensagem `assistant` da resposta.",
+        "properties": {
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaToolCallOut"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          }
+        },
+        "title": "OllamaChatMessage",
+        "type": "object"
+      },
+      "OllamaChatRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /api/chat`.",
+        "example": {
+          "format": "json",
+          "keep_alive": "5m",
+          "messages": [
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "model": "ollama/llama3.1",
+          "options": {
+            "num_predict": 256,
+            "temperature": 0.7
+          },
+          "stream": false,
+          "tools": []
+        },
+        "properties": {
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "keep_alive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Alive"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaMessage"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": true,
+            "title": "Options",
+            "type": "object"
+          },
+          "stream": {
+            "default": true,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OllamaTool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "OllamaChatRequest",
+        "type": "object"
+      },
+      "OllamaChatResponse": {
+        "additionalProperties": false,
+        "description": "Resposta não-streaming de `POST /api/chat` (CA-37).",
+        "example": {
+          "created_at": "2026-10-29T14:30:00Z",
+          "done": true,
+          "done_reason": "stop",
+          "eval_count": 8,
+          "message": {
+            "content": "Olá! Como posso ajudar?",
+            "role": "assistant"
+          },
+          "model": "llama3.1:latest",
+          "prompt_eval_count": 12
+        },
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "done": {
+            "const": true,
+            "default": true,
+            "title": "Done",
+            "type": "boolean"
+          },
+          "done_reason": {
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls"
+            ],
+            "title": "Done Reason",
+            "type": "string"
+          },
+          "eval_count": {
+            "title": "Eval Count",
+            "type": "integer"
+          },
+          "message": {
+            "$ref": "#/components/schemas/OllamaChatMessage"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_eval_count": {
+            "title": "Prompt Eval Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "created_at",
+          "message",
+          "done_reason",
+          "prompt_eval_count",
+          "eval_count"
+        ],
+        "title": "OllamaChatResponse",
+        "type": "object"
+      },
+      "OllamaFunction": {
+        "additionalProperties": true,
+        "description": "Definição da função de uma ferramenta.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OllamaFunction",
+        "type": "object"
+      },
+      "OllamaMessage": {
+        "additionalProperties": true,
+        "description": "Mensagem no contrato Ollama.",
+        "properties": {
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images"
+          },
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OllamaToolCall"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          },
+          "tool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Name"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "OllamaMessage",
+        "type": "object"
+      },
+      "OllamaModelDetails": {
+        "additionalProperties": false,
+        "description": "Detalhes de um modelo no shape Ollama.",
+        "properties": {
+          "family": {
+            "default": "",
+            "title": "Family",
+            "type": "string"
+          },
+          "parameter_size": {
+            "default": "",
+            "title": "Parameter Size",
+            "type": "string"
+          },
+          "quantization_level": {
+            "default": "",
+            "title": "Quantization Level",
+            "type": "string"
+          }
+        },
+        "title": "OllamaModelDetails",
+        "type": "object"
+      },
+      "OllamaPsModel": {
+        "additionalProperties": false,
+        "description": "Modelo em execução (o gateway não mantém estado).",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "size_vram": {
+            "title": "Size Vram",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "model",
+          "size",
+          "size_vram"
+        ],
+        "title": "OllamaPsModel",
+        "type": "object"
+      },
+      "OllamaPsResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /api/ps`.",
+        "example": {
+          "models": []
+        },
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaPsModel"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "title": "OllamaPsResponse",
+        "type": "object"
+      },
+      "OllamaShowRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /api/show`.",
+        "example": {
+          "model": "ollama/llama3.1"
+        },
+        "properties": {
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "verbose": {
+            "default": false,
+            "title": "Verbose",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "title": "OllamaShowRequest",
+        "type": "object"
+      },
+      "OllamaShowResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /api/show`.",
+        "example": {
+          "capabilities": [
+            "completion",
+            "tools"
+          ],
+          "details": {
+            "family": "llama",
+            "parameter_size": "8.0B",
+            "quantization_level": "Q4_K_M"
+          },
+          "model": "ollama/llama3.1",
+          "modified_at": "2026-10-29T14:30:00Z"
+        },
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "details": {
+            "$ref": "#/components/schemas/OllamaModelDetails"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "details",
+          "capabilities",
+          "modified_at"
+        ],
+        "title": "OllamaShowResponse",
+        "type": "object"
+      },
+      "OllamaTagModel": {
+        "additionalProperties": false,
+        "description": "Modelo listado por `GET /api/tags`.",
+        "properties": {
+          "details": {
+            "$ref": "#/components/schemas/OllamaModelDetails"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "model",
+          "modified_at",
+          "size",
+          "digest",
+          "details"
+        ],
+        "title": "OllamaTagModel",
+        "type": "object"
+      },
+      "OllamaTagsResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /api/tags` (CA-37).",
+        "example": {
+          "models": [
+            {
+              "details": {
+                "family": "llama",
+                "parameter_size": "8.0B",
+                "quantization_level": "Q4_K_M"
+              },
+              "digest": "sha256:0192f3a4",
+              "model": "ollama/llama3.1",
+              "modified_at": "2026-10-29T14:30:00Z",
+              "name": "ollama/llama3.1",
+              "size": 4920739055
+            }
+          ]
+        },
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/OllamaTagModel"
+            },
+            "title": "Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "title": "OllamaTagsResponse",
+        "type": "object"
+      },
+      "OllamaTool": {
+        "additionalProperties": true,
+        "description": "Ferramenta declarada no contrato Ollama.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OllamaFunction"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OllamaTool",
+        "type": "object"
+      },
+      "OllamaToolCall": {
+        "additionalProperties": true,
+        "description": "Chamada de ferramenta em `messages[].tool_calls`.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OllamaToolCallFunction"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OllamaToolCall",
+        "type": "object"
+      },
+      "OllamaToolCallFunction": {
+        "additionalProperties": true,
+        "description": "Chamada de ferramenta (argumentos como objeto JSON).",
+        "properties": {
+          "arguments": {
+            "additionalProperties": true,
+            "title": "Arguments",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OllamaToolCallFunction",
+        "type": "object"
+      },
+      "OllamaToolCallOut": {
+        "additionalProperties": false,
+        "description": "Chamada de ferramenta devolvida ao cliente Ollama.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OllamaToolCallFunction"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OllamaToolCallOut",
+        "type": "object"
+      },
+      "OpenAIAssistantMessage": {
+        "additionalProperties": false,
+        "description": "Mensagem `assistant` devolvida ao cliente.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIToolCallOut"
+            },
+            "title": "Tool Calls",
+            "type": "array"
+          }
+        },
+        "title": "OpenAIAssistantMessage",
+        "type": "object"
+      },
+      "OpenAIChatRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /v1/chat/completions`.",
+        "example": {
+          "max_tokens": 256,
+          "messages": [
+            {
+              "content": "Seja breve.",
+              "role": "system"
+            },
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "model": "openai/gpt-4o-mini",
+          "response_format": {
+            "type": "text"
+          },
+          "stop": [
+            "\n\n"
+          ],
+          "stream": false,
+          "temperature": 0.7,
+          "top_p": 1.0
+        },
+        "properties": {
+          "frequency_penalty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency Penalty"
+          },
+          "logit_bias": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logit Bias"
+          },
+          "logprobs": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logprobs"
+          },
+          "max_completion_tokens": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Completion Tokens"
+          },
+          "max_tokens": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Tokens"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIMessage"
+            },
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "n": {
+            "default": 1,
+            "minimum": 1.0,
+            "title": "N",
+            "type": "integer"
+          },
+          "parallel_tool_calls": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parallel Tool Calls"
+          },
+          "presence_penalty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presence Penalty"
+          },
+          "response_format": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIResponseFormat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "stop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop"
+          },
+          "stream": {
+            "default": false,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "stream_options": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIStreamOptions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 2.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Choice"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OpenAITool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "OpenAIChatRequest",
+        "type": "object"
+      },
+      "OpenAIChatResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /v1/chat/completions` (CA-31).",
+        "example": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "Olá! Como posso ajudar?",
+                "role": "assistant",
+                "tool_calls": []
+              }
+            }
+          ],
+          "created": 1761748200,
+          "id": "chatcmpl-nexa-0192f3a4000070008000",
+          "model": "gpt-4o-mini",
+          "object": "chat.completion",
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 12,
+            "total_tokens": 20
+          }
+        },
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIChoice"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "object": {
+            "const": "chat.completion",
+            "default": "chat.completion",
+            "title": "Object",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/OpenAIUsage"
+          }
+        },
+        "required": [
+          "id",
+          "created",
+          "model",
+          "choices",
+          "usage"
+        ],
+        "title": "OpenAIChatResponse",
+        "type": "object"
+      },
+      "OpenAIChoice": {
+        "additionalProperties": false,
+        "description": "Escolha da resposta (`n = 1`).",
+        "properties": {
+          "finish_reason": {
+            "enum": [
+              "stop",
+              "length",
+              "tool_calls",
+              "content_filter"
+            ],
+            "title": "Finish Reason",
+            "type": "string"
+          },
+          "index": {
+            "default": 0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "message": {
+            "$ref": "#/components/schemas/OpenAIAssistantMessage"
+          }
+        },
+        "required": [
+          "message",
+          "finish_reason"
+        ],
+        "title": "OpenAIChoice",
+        "type": "object"
+      },
+      "OpenAIMessage": {
+        "additionalProperties": true,
+        "description": "Mensagem no contrato OpenAI (`system`, `user`, `assistant`, `tool`).",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "role": {
+            "enum": [
+              "system",
+              "user",
+              "assistant",
+              "tool"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OpenAIToolCall"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "OpenAIMessage",
+        "type": "object"
+      },
+      "OpenAIModel": {
+        "additionalProperties": false,
+        "description": "Modelo no shape OpenAI.",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "object": {
+            "const": "model",
+            "default": "model",
+            "title": "Object",
+            "type": "string"
+          },
+          "owned_by": {
+            "default": "nexa",
+            "title": "Owned By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created"
+        ],
+        "title": "OpenAIModel",
+        "type": "object"
+      },
+      "OpenAIModelList": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /v1/models` (CA-33).",
+        "example": {
+          "data": [
+            {
+              "created": 1761748200,
+              "id": "openai/gpt-4o-mini",
+              "object": "model",
+              "owned_by": "nexa"
+            }
+          ],
+          "object": "list"
+        },
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIModel"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "object": {
+            "const": "list",
+            "default": "list",
+            "title": "Object",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "OpenAIModelList",
+        "type": "object"
+      },
+      "OpenAIResponseFormat": {
+        "additionalProperties": true,
+        "description": "`response_format`; `json_object`/`json_schema` exigem `json_mode`.",
+        "properties": {
+          "type": {
+            "default": "text",
+            "enum": [
+              "text",
+              "json_object",
+              "json_schema"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "OpenAIResponseFormat",
+        "type": "object"
+      },
+      "OpenAIStreamOptions": {
+        "additionalProperties": true,
+        "description": "`stream_options`; `include_usage` envia o chunk final de uso.",
+        "properties": {
+          "include_usage": {
+            "default": false,
+            "title": "Include Usage",
+            "type": "boolean"
+          }
+        },
+        "title": "OpenAIStreamOptions",
+        "type": "object"
+      },
+      "OpenAITool": {
+        "additionalProperties": true,
+        "description": "Ferramenta declarada no contrato OpenAI.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OpenAIToolFunction"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "OpenAITool",
+        "type": "object"
+      },
+      "OpenAIToolCall": {
+        "additionalProperties": true,
+        "description": "Chamada de ferramenta no formato OpenAI.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OpenAIToolCallFunction"
+          },
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "function"
+        ],
+        "title": "OpenAIToolCall",
+        "type": "object"
+      },
+      "OpenAIToolCallFunction": {
+        "additionalProperties": true,
+        "description": "Função chamada pelo modelo (argumentos em string JSON, como na OpenAI).",
+        "properties": {
+          "arguments": {
+            "default": "{}",
+            "title": "Arguments",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OpenAIToolCallFunction",
+        "type": "object"
+      },
+      "OpenAIToolCallOut": {
+        "additionalProperties": false,
+        "description": "Chamada de ferramenta na resposta.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/OpenAIToolCallFunction"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "function"
+        ],
+        "title": "OpenAIToolCallOut",
+        "type": "object"
+      },
+      "OpenAIToolFunction": {
+        "additionalProperties": true,
+        "description": "Definição da função de uma ferramenta.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OpenAIToolFunction",
+        "type": "object"
+      },
+      "OpenAIUsage": {
+        "additionalProperties": false,
+        "description": "Tokens da resposta, no shape OpenAI.",
+        "properties": {
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "title": "Total Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt_tokens",
+          "completion_tokens",
+          "total_tokens"
+        ],
+        "title": "OpenAIUsage",
+        "type": "object"
+      },
+      "ProviderModels": {
+        "additionalProperties": false,
+        "description": "Catálogo de um provedor habilitado.",
+        "properties": {
+          "available": {
+            "description": "Se o catálogo respondeu nesta consulta.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "default_model": {
+            "description": "Modelo padrão do provedor.",
+            "title": "Default Model",
+            "type": "string"
+          },
+          "models": {
+            "description": "Modelos encontrados, ordenados por nome.",
             "items": {
               "$ref": "#/components/schemas/ModelEntry"
             },
             "title": "Models",
             "type": "array"
           },
+          "name": {
+            "description": "Rótulo humano do provedor.",
+            "title": "Name",
+            "type": "string"
+          },
           "provider": {
-            "description": "Provedor ativo.",
+            "description": "Nome do provedor no registry.",
             "title": "Provider",
             "type": "string"
           }
         },
         "required": [
           "provider",
+          "name",
+          "available",
           "default_model",
           "models"
         ],
-        "title": "ModelsResponse",
+        "title": "ProviderModels",
+        "type": "object"
+      },
+      "ProviderReadiness": {
+        "additionalProperties": false,
+        "description": "Disponibilidade de um provedor habilitado.",
+        "properties": {
+          "available": {
+            "description": "Resultado do health check.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Código do erro, quando indisponível.",
+            "title": "Error"
+          },
+          "provider": {
+            "description": "Nome do provedor no registry.",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "available"
+        ],
+        "title": "ProviderReadiness",
+        "type": "object"
+      },
+      "ProviderStatus": {
+        "additionalProperties": false,
+        "description": "Saúde de um provedor habilitado (RF-ADM-03).",
+        "properties": {
+          "available": {
+            "description": "Resultado da última verificação de saúde.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "checked_at": {
+            "description": "Instante da verificação, em UTC.",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "default_model": {
+            "description": "Modelo padrão do provedor.",
+            "title": "Default Model",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Código do erro, quando indisponível.",
+            "title": "Error"
+          },
+          "label": {
+            "description": "Rótulo humano do provedor.",
+            "title": "Label",
+            "type": "string"
+          },
+          "provider": {
+            "description": "Nome do provedor no registry.",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "label",
+          "default_model",
+          "available",
+          "checked_at"
+        ],
+        "title": "ProviderStatus",
+        "type": "object"
+      },
+      "ProviderUsage": {
+        "additionalProperties": false,
+        "description": "Tokens medidos pelo provedor, quando disponíveis.",
+        "properties": {
+          "completion_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Tokens"
+          },
+          "prompt_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Tokens"
+          }
+        },
+        "title": "ProviderUsage",
         "type": "object"
       },
       "ReadinessResponse": {
         "additionalProperties": false,
-        "description": "Corpo de `GET /health/ready`.",
+        "description": "Corpo de `GET /health/ready` (RF-SIS-04/05).",
         "example": {
+          "database": "ok",
           "provider": "ollama",
+          "providers": [
+            {
+              "available": true,
+              "provider": "ollama"
+            }
+          ],
           "request_id": "b1f4c7e2-6f0f-4c39-9e57-6a1f0f0b8f4d",
           "status": "ok"
         },
         "properties": {
+          "database": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Status do SQLite, quando configurado.",
+            "title": "Database"
+          },
           "provider": {
             "anyOf": [
               {
@@ -570,8 +3109,16 @@
                 "type": "null"
               }
             ],
-            "description": "Provedor de IA configurado.",
+            "description": "Provedor padrão da API.",
             "title": "Provider"
+          },
+          "providers": {
+            "description": "Status de cada provedor habilitado.",
+            "items": {
+              "$ref": "#/components/schemas/ProviderReadiness"
+            },
+            "title": "Providers",
+            "type": "array"
           },
           "request_id": {
             "description": "Identificador da requisição (RF-SIS-03).",
@@ -594,6 +3141,62 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ResetPasswordRequest": {
+        "additionalProperties": false,
+        "description": "Corpo opcional de `POST /admin/users/{id}/reset-password`.",
+        "example": {
+          "password": "Nxa-nova-senha-opcional"
+        },
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nova senha; omitida, uma senha forte é gerada.",
+            "title": "Password"
+          }
+        },
+        "title": "ResetPasswordRequest",
+        "type": "object"
+      },
+      "ResetPasswordResponse": {
+        "additionalProperties": false,
+        "description": "Resposta da redefinição de senha.",
+        "example": {
+          "id": "0192f3a4-0000-7000-8000-000000000001",
+          "password": "Nxa-exemplo-de-senha-gerada",
+          "username": "teste01"
+        },
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "password": {
+            "description": "Nova senha em texto puro (única exibição).",
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "password"
+        ],
+        "title": "ResetPasswordResponse",
+        "type": "object"
+      },
       "ResetRequest": {
         "additionalProperties": false,
         "description": "Corpo de `POST /admin/usage/reset` (RF-ADM-04, RF-USO-10).",
@@ -603,16 +3206,17 @@
         },
         "properties": {
           "scope": {
-            "description": "Alvo do reset: `gid` ou `ip`.",
+            "description": "Alvo do reset: `gid`, `ip` ou `uid`.",
             "enum": [
               "gid",
-              "ip"
+              "ip",
+              "uid"
             ],
             "title": "Scope",
             "type": "string"
           },
           "value": {
-            "description": "`gid` ou IP cuja cota diária será zerada.",
+            "description": "`gid`, IP ou `uid` cuja cota diária será zerada.",
             "maxLength": 256,
             "minLength": 1,
             "title": "Value",
@@ -682,12 +3286,13 @@
       },
       "TokenResponse": {
         "additionalProperties": false,
-        "description": "Resposta do login do administrador.",
+        "description": "Resposta do login (admin ou usuário de teste).",
         "example": {
           "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
           "expires_in": 3600,
           "role": "admin",
-          "token_type": "bearer"
+          "token_type": "bearer",
+          "user_id": "00000000-0000-0000-0000-000000000001"
         },
         "properties": {
           "access_token": {
@@ -701,6 +3306,7 @@
           "role": {
             "enum": [
               "admin",
+              "user",
               "guest"
             ],
             "title": "Role",
@@ -711,6 +3317,18 @@
             "default": "bearer",
             "title": "Token Type",
             "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UUID do admin ou do usuário de teste; `null` para guest.",
+            "title": "User Id"
           }
         },
         "required": [
@@ -719,6 +3337,85 @@
           "role"
         ],
         "title": "TokenResponse",
+        "type": "object"
+      },
+      "ToolCallOut": {
+        "additionalProperties": false,
+        "description": "Chamada de ferramenta produzida pelo modelo.",
+        "properties": {
+          "arguments": {
+            "additionalProperties": true,
+            "title": "Arguments",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ToolCallOut",
+        "type": "object"
+      },
+      "ToolDefinition": {
+        "additionalProperties": false,
+        "description": "Ferramenta no formato interno do chat nativo.",
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/ToolFunction"
+          },
+          "type": {
+            "const": "function",
+            "default": "function",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "function"
+        ],
+        "title": "ToolDefinition",
+        "type": "object"
+      },
+      "ToolFunction": {
+        "additionalProperties": false,
+        "description": "Definição da função de uma ferramenta.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ToolFunction",
         "type": "object"
       },
       "UsageInfo": {
@@ -842,6 +3539,7 @@
           "role": {
             "enum": [
               "admin",
+              "user",
               "guest"
             ],
             "title": "Role",
@@ -856,6 +3554,480 @@
           "role"
         ],
         "title": "UsageResponse",
+        "type": "object"
+      },
+      "UserCreate": {
+        "additionalProperties": false,
+        "description": "Corpo de `POST /admin/users` (RF-USR-05).",
+        "example": {
+          "daily_message_limit": 100,
+          "email": "teste01@example.com",
+          "expires_at": "2026-11-05T14:30:00Z",
+          "rate_per_min": 10,
+          "username": "teste01"
+        },
+        "properties": {
+          "daily_message_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cota diária; `null` usa o padrão.",
+            "title": "Daily Message Limit"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "E-mail único opcional.",
+            "title": "Email"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Expiração do usuário de teste (ISO 8601 UTC).",
+            "title": "Expires At"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Senha opcional; omitida, uma senha forte é gerada.",
+            "title": "Password"
+          },
+          "rate_per_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Limite por minuto; `null` usa o padrão.",
+            "title": "Rate Per Min"
+          },
+          "username": {
+            "description": "Username único, case-insensitive; é normalizado para minúsculas.",
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "UserCreate",
+        "type": "object"
+      },
+      "UserCreateResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de criação/redefinição; `password` aparece uma única vez.",
+        "example": {
+          "created_at": "2026-10-29T14:30:00Z",
+          "daily_message_limit": 100,
+          "expires_at": "2026-11-05T14:30:00Z",
+          "id": "0192f3a4-0000-7000-8000-000000000001",
+          "is_active": true,
+          "is_protected": false,
+          "is_test": true,
+          "password": "Nxa-exemplo-de-senha-gerada",
+          "rate_per_min": 10,
+          "role": "user",
+          "updated_at": "2026-10-29T14:30:00Z",
+          "username": "teste01",
+          "username_display": "teste01"
+        },
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "daily_message_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Message Limit"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_protected": {
+            "title": "Is Protected",
+            "type": "boolean"
+          },
+          "is_test": {
+            "title": "Is Test",
+            "type": "boolean"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "password": {
+            "description": "Senha em texto puro; devolvida apenas nesta resposta.",
+            "title": "Password",
+            "type": "string"
+          },
+          "rate_per_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Per Min"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "user",
+              "guest"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "username_display": {
+            "title": "Username Display",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "username_display",
+          "role",
+          "is_test",
+          "is_protected",
+          "is_active",
+          "created_at",
+          "updated_at",
+          "password"
+        ],
+        "title": "UserCreateResponse",
+        "type": "object"
+      },
+      "UserPage": {
+        "additionalProperties": false,
+        "description": "Resposta de `GET /admin/users`.",
+        "example": {
+          "users": []
+        },
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cursor opaco para a próxima página.",
+            "title": "Next Cursor"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            },
+            "title": "Users",
+            "type": "array"
+          }
+        },
+        "required": [
+          "users"
+        ],
+        "title": "UserPage",
+        "type": "object"
+      },
+      "UserResponse": {
+        "additionalProperties": false,
+        "description": "Usuário exposto pela API (nunca inclui `password_hash`).",
+        "example": {
+          "created_at": "2026-10-29T14:30:00Z",
+          "daily_message_limit": 100,
+          "email": "teste01@example.com",
+          "expires_at": "2026-11-05T14:30:00Z",
+          "id": "0192f3a4-0000-7000-8000-000000000001",
+          "is_active": true,
+          "is_protected": false,
+          "is_test": true,
+          "rate_per_min": 10,
+          "role": "user",
+          "updated_at": "2026-10-29T14:30:00Z",
+          "username": "teste01",
+          "username_display": "teste01"
+        },
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "daily_message_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Message Limit"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_protected": {
+            "title": "Is Protected",
+            "type": "boolean"
+          },
+          "is_test": {
+            "title": "Is Test",
+            "type": "boolean"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "rate_per_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Per Min"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "user",
+              "guest"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "username_display": {
+            "title": "Username Display",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "username_display",
+          "role",
+          "is_test",
+          "is_protected",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "UserUpdate": {
+        "additionalProperties": false,
+        "description": "Corpo de `PATCH /admin/users/{id}` (campos omitidos não mudam).",
+        "example": {
+          "daily_message_limit": 50,
+          "is_active": false
+        },
+        "properties": {
+          "daily_message_limit": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Message Limit"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "rate_per_min": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Per Min"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "UserUpdate",
         "type": "object"
       },
       "ValidationError": {
@@ -908,15 +4080,220 @@
     }
   },
   "info": {
-    "description": "\nAPI do chat de IA via web, conforme o SRS v1.2.\n\n- Autenticação por JWT (`admin` e `guest`).\n- Chat com resposta JSON ou streaming SSE.\n- Catálogo de modelos (`/models`) e seleção de modelo por requisição.\n- Cotas em memória por convidado e por IP.\n- Administração: estatísticas, status do provedor, guests e reset de cota.\n- Erros no padrão Problem Details (`application/problem+json`).\n",
+    "description": "\nAPI do chat de IA via web, conforme o SRS v2.0.\n\n- Autenticação por JWT (`admin`, `user` e `guest`).\n- Usuários de teste em SQLite, com ADMIN permanente/inviolável.\n- Chat com resposta JSON ou streaming SSE.\n- Gateway multi-provedor (Ollama, OpenAI, Anthropic, Gemini e OpenAI-compatible).\n- Catálogo agregado de modelos (`/models`) e seleção por Model ID.\n- Camadas de compatibilidade OpenAI, Anthropic (Claude Code) e Ollama.\n- Cotas em memória por convidado, IP e usuário de teste.\n- Administração: estatísticas, provedores, guests, usuários e reset de cota.\n- Erros no padrão Problem Details (`application/problem+json`).\n",
     "title": "Nexa API",
     "version": "1.1.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/chat": {
+      "post": {
+        "description": "Traduz `model`, `messages`, `tools`, `options` e `format` para o pipeline nativo. Devolve um objeto JSON ou NDJSON com `done:false` por trecho e uma linha final `done:true` (streaming é o padrão do Ollama).",
+        "operationId": "chat_api_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OllamaChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaChatResponse"
+                }
+              },
+              "application/x-ndjson": {
+                "example": "{\"model\":\"llama3.1:latest\",\"created_at\":\"2026-10-29T14:30:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Olá\"},\"done\":false}\n{\"model\":\"llama3.1:latest\",\"created_at\":\"2026-10-29T14:30:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"!\"},\"done\":false}\n{\"model\":\"llama3.1:latest\",\"created_at\":\"2026-10-29T14:30:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":12,\"eval_count\":8}\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Mensagem JSON ou stream NDJSON."
+          },
+          "400": {
+            "description": "Requisição inválida."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limit ou cota excedida."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chat no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
+    "/api/ps": {
+      "get": {
+        "description": "O gateway é stateless e não mantém modelos carregados, portanto responde sempre com `{\"models\":[]}`. A rota existe para clientes Ollama que a consultam na inicialização.",
+        "operationId": "ps_api_ps_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaPsResponse"
+                }
+              }
+            },
+            "description": "Lista vazia de modelos em execução."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Modelos em execução no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
+    "/api/show": {
+      "post": {
+        "description": "Devolve `details`, `capabilities` e `modified_at` de um Model ID canônico ou do nome do modelo. Consultar o catálogo não consome cota.",
+        "operationId": "show_api_show_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OllamaShowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaShowResponse"
+                }
+              }
+            },
+            "description": "Detalhes do modelo."
+          },
+          "400": {
+            "description": "Requisição inválida."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Detalhes de um modelo no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "description": "Agrega o catálogo dos provedores habilitados. Os nomes são Model IDs canônicos (`provider/model`), aceitos de volta em `/api/chat` e `/api/show`. Consultar o catálogo não consome cota.",
+        "operationId": "tags_api_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OllamaTagsResponse"
+                }
+              }
+            },
+            "description": "Lista de modelos instalados."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          },
+          "503": {
+            "description": "Provedores indisponíveis."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Modelos no formato Ollama",
+        "tags": [
+          "Compatibilidade Ollama"
+        ]
+      }
+    },
     "/api/v1/admin/ai/status": {
       "get": {
-        "description": "Informa provedor, modelo e disponibilidade. Chaves e segredos nunca são expostos.",
+        "description": "Verifica a saúde de cada provedor habilitado. Chaves e segredos nunca são expostos.",
         "operationId": "ai_status_api_v1_admin_ai_status_get",
         "responses": {
           "200": {
@@ -941,7 +4318,43 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Status do provedor de IA",
+        "summary": "Status dos provedores de IA",
+        "tags": [
+          "Administração"
+        ]
+      }
+    },
+    "/api/v1/admin/db/status": {
+      "get": {
+        "description": "Expõe caminho, tamanho, WAL, versão de migração, contagem de usuários e latências p95 de leitura/escrita. Nunca retorna conteúdo sensível.",
+        "operationId": "database_status_api_v1_admin_db_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DbStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "503": {
+            "description": "Banco indisponível."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Status e latência do SQLite",
         "tags": [
           "Administração"
         ]
@@ -1015,7 +4428,7 @@
     },
     "/api/v1/admin/usage/reset": {
       "post": {
-        "description": "Zera a cota diária do `gid` ou do IP informado. Alvo inexistente retorna `404` (`not_found`).",
+        "description": "Zera a cota diária do `gid`, do IP ou do `uid` informado. Alvo inexistente retorna `404` (`not_found`).",
         "operationId": "reset_usage_api_v1_admin_usage_reset_post",
         "requestBody": {
           "content": {
@@ -1038,7 +4451,7 @@
             "description": "Requer papel `admin`."
           },
           "404": {
-            "description": "`gid` ou IP sem cota ativa."
+            "description": "`gid`, IP ou `uid` sem cota ativa."
           },
           "422": {
             "content": {
@@ -1056,9 +4469,507 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Zera a cota de um guest ou IP",
+        "summary": "Zera a cota de um guest, IP ou usuário",
         "tags": [
           "Administração"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "description": "Lista usuários com paginação por cursor opaco e filtros por papel, `is_test` e `is_active`. Limite máximo de 100.",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_test",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Test"
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                }
+              }
+            },
+            "description": "Página de usuários."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "422": {
+            "description": "Cursor inválido."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista usuários",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      },
+      "post": {
+        "description": "Cria um usuário descartável (`role=user`, `is_test=1`). Sem senha, uma senha forte é gerada e devolvida apenas nesta resposta.",
+        "operationId": "create_user_api_v1_admin_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserCreateResponse"
+                }
+              }
+            },
+            "description": "Usuário criado; a senha aparece uma única vez."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin` ou usuários de teste desabilitados."
+          },
+          "409": {
+            "description": "Username ou e-mail já utilizado."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cria um usuário de teste",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      }
+    },
+    "/api/v1/admin/users/bulk": {
+      "post": {
+        "description": "Cria até `TEST_USER_MAX_BULK` usuários com usernames sequenciais. As senhas são geradas e devolvidas uma única vez.",
+        "operationId": "create_users_bulk_api_v1_admin_users_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCreateResponse"
+                }
+              }
+            },
+            "description": "Usuários criados; senhas exibidas uma única vez."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "422": {
+            "description": "Lote acima do limite."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cria usuários de teste em lote",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      }
+    },
+    "/api/v1/admin/users/cleanup": {
+      "post": {
+        "description": "Remove somente `is_test=1`, não protegidos, com `expires_at` vencido. O admin nunca é candidato.",
+        "operationId": "cleanup_users_api_v1_admin_users_cleanup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupResponse"
+                }
+              }
+            },
+            "description": "Quantidade de usuários removidos."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Limpa usuários de teste expirados",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "description": "Exclui somente usuários de teste; o admin retorna `409 admin_protected`.",
+        "operationId": "delete_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Usuário excluído."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "404": {
+            "description": "Usuário inexistente."
+          },
+          "409": {
+            "description": "Admin protegido ou usuário não descartável."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Exclui um usuário de teste",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      },
+      "get": {
+        "description": "Devolve os dados públicos de um usuário, sem `password_hash`.",
+        "operationId": "get_user_api_v1_admin_users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Usuário encontrado."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "404": {
+            "description": "Usuário inexistente."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consulta um usuário",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      },
+      "patch": {
+        "description": "Atualiza username/e-mail/limites/atividade/expiração. Não altera `role`, `is_test`, `is_protected` nem o admin.",
+        "operationId": "update_user_api_v1_admin_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Usuário atualizado."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "404": {
+            "description": "Usuário inexistente."
+          },
+          "409": {
+            "description": "Admin protegido ou username duplicado."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Atualiza um usuário de teste",
+        "tags": [
+          "Usuários (admin)"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/reset-password": {
+      "post": {
+        "description": "Gera ou aceita uma nova senha, invalida o cache de autenticação e a devolve uma única vez. O admin não pode ser alvo.",
+        "operationId": "reset_password_api_v1_admin_users__user_id__reset_password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ResetPasswordRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetPasswordResponse"
+                }
+              }
+            },
+            "description": "Senha redefinida."
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "403": {
+            "description": "Requer papel `admin`."
+          },
+          "404": {
+            "description": "Usuário inexistente."
+          },
+          "409": {
+            "description": "Admin protegido."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Redefine a senha de um usuário de teste",
+        "tags": [
+          "Usuários (admin)"
         ]
       }
     },
@@ -1089,7 +5000,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "description": "Valida usuário e senha e devolve um access token JWT.",
+        "description": "Valida usuário e senha (admin pela configuração, usuário de teste pelo SQLite) e devolve um access token JWT.",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -1129,7 +5040,7 @@
             "description": "Login temporariamente bloqueado."
           }
         },
-        "summary": "Login do administrador",
+        "summary": "Login do administrador ou usuário de teste",
         "tags": [
           "Autenticação"
         ]
@@ -1195,17 +5106,17 @@
     },
     "/api/v1/models": {
       "get": {
-        "description": "Consulta o provedor de IA (Ollama) e devolve os modelos locais instalados, com nome, tamanho, data de modificação, família, parâmetros e quantização. `default_model` é o modelo usado quando o chat omite `model`; `selectable` indica se o modelo pode ser escolhido no chat (respeita `AI_ALLOWED_MODELS`).",
+        "description": "Agrega os catálogos de todos os provedores habilitados, com capacidades, janela de contexto e `selectable` (respeita `AI_ALLOWED_MODELS` e aliases). Falha de um provedor aparece como `available = false`; falha total retorna `503 provider_unavailable`. Consultar o catálogo não consome cota.",
         "operationId": "list_models_api_v1_models_get",
         "parameters": [
           {
-            "description": "Ignora o cache curto e consulta o provedor novamente.",
+            "description": "Ignora o cache curto e consulta os provedores novamente.",
             "in": "query",
             "name": "refresh",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Ignora o cache curto e consulta o provedor novamente.",
+              "description": "Ignora o cache curto e consulta os provedores novamente.",
               "title": "Refresh",
               "type": "boolean"
             }
@@ -1239,10 +5150,10 @@
             "description": "Resposta inválida do provedor."
           },
           "503": {
-            "description": "Provedor de IA indisponível."
+            "description": "Todos os provedores indisponíveis."
           },
           "504": {
-            "description": "Provedor de IA não respondeu a tempo."
+            "description": "Provedor não respondeu a tempo."
           }
         },
         "security": [
@@ -1250,7 +5161,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Lista os modelos instalados",
+        "summary": "Lista os modelos dos provedores habilitados",
         "tags": [
           "Modelos"
         ]
@@ -1308,9 +5219,41 @@
         ]
       }
     },
+    "/health/db": {
+      "get": {
+        "description": "Verifica o banco de usuários, o modo WAL e a versão de migração aplicada.",
+        "operationId": "database_health_health_db_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DbHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DbHealthResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Saúde do SQLite",
+        "tags": [
+          "Sistema"
+        ]
+      }
+    },
     "/health/ready": {
       "get": {
-        "description": "Verifica o provedor de IA configurado. Sem provedor registrado (fase de fundação), responde `200`.",
+        "description": "Agrega a disponibilidade dos provedores de IA habilitados e, quando configurado, do SQLite. Responde `503` se algum componente essencial falhar.",
         "operationId": "readiness_health_ready_get",
         "responses": {
           "200": {
@@ -1337,6 +5280,225 @@
         "summary": "Prontidão da API",
         "tags": [
           "Sistema"
+        ]
+      }
+    },
+    "/v1/chat/completions": {
+      "post": {
+        "description": "Traduz o contrato OpenAI para o pipeline nativo: valida modelo/capacidades, aplica cotas e rate limit da API key e devolve `chat.completion` (JSON) ou `chat.completion.chunk` seguido de `data: [DONE]` (streaming).",
+        "operationId": "create_chat_completion_v1_chat_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenAIChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIChatResponse"
+                }
+              },
+              "text/event-stream": {
+                "example": "data: {\"id\":\"chatcmpl-nexa-0192\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Olá\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-nexa-0192\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Resposta JSON ou stream SSE."
+          },
+          "400": {
+            "description": "Parâmetro não suportado."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "description": "Requisição inválida."
+          },
+          "429": {
+            "description": "Rate limit ou cota excedida."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Chat no formato OpenAI",
+        "tags": [
+          "Compatibilidade OpenAI"
+        ]
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "description": "Traduz o contrato Anthropic (blocos de conteúdo, `system`, `tools`, `tool_use`) para o pipeline nativo. Devolve `message` (JSON) ou a sequência de eventos SSE tipados usada pelo Claude Code.",
+        "operationId": "create_message_v1_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnthropicMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicMessageResponse"
+                }
+              },
+              "text/event-stream": {
+                "example": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_nexa_0192\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":0,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Olá\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":7}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Mensagem JSON ou stream SSE tipado."
+          },
+          "400": {
+            "description": "Bloco ou parâmetro não suportado."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "description": "Requisição inválida."
+          },
+          "429": {
+            "description": "Rate limit ou cota excedida."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Messages API no formato Anthropic",
+        "tags": [
+          "Compatibilidade Anthropic"
+        ]
+      }
+    },
+    "/v1/messages/count_tokens": {
+      "post": {
+        "description": "Conta os tokens de entrada usando `count_tokens` do provedor quando disponível; caso contrário, aplica a estimativa documentada de ~4 caracteres por token. Não consome cota.",
+        "operationId": "count_tokens_v1_messages_count_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnthropicCountTokensRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicCountTokensResponse"
+                }
+              }
+            },
+            "description": "Contagem de tokens de entrada."
+          },
+          "400": {
+            "description": "Bloco ou parâmetro não suportado."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "description": "Requisição inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Contagem de tokens no formato Anthropic",
+        "tags": [
+          "Compatibilidade Anthropic"
+        ]
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "description": "Lista o catálogo agregado dos provedores habilitados como `{\"object\":\"list\",\"data\":[...]}`. Consultar o catálogo não consome cota.",
+        "operationId": "list_models_v1_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIModelList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          },
+          "502": {
+            "description": "Resposta inválida do provedor."
+          },
+          "503": {
+            "description": "Provedores indisponíveis."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Modelos no formato OpenAI",
+        "tags": [
+          "Compatibilidade OpenAI"
         ]
       }
     }

@@ -20,6 +20,7 @@ SNAPSHOT = Path(__file__).resolve().parents[1] / "snapshots" / "openapi.json"
 
 EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/health": {"get"},
+    "/health/db": {"get"},
     "/health/ready": {"get"},
     "/api/v1/auth/login": {"post"},
     "/api/v1/auth/guest": {"post"},
@@ -27,13 +28,28 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/api/v1/chat": {"post"},
     "/api/v1/models": {"get"},
     "/api/v1/admin/stats": {"get"},
+    "/api/v1/admin/db/status": {"get"},
     "/api/v1/admin/ai/status": {"get"},
     "/api/v1/admin/guests": {"get"},
     "/api/v1/admin/usage/reset": {"post"},
+    "/api/v1/admin/users": {"get", "post"},
+    "/api/v1/admin/users/bulk": {"post"},
+    "/api/v1/admin/users/cleanup": {"post"},
+    "/api/v1/admin/users/{user_id}": {"get", "patch", "delete"},
+    "/api/v1/admin/users/{user_id}/reset-password": {"post"},
+    "/v1/chat/completions": {"post"},
+    "/v1/models": {"get"},
+    "/v1/messages": {"post"},
+    "/v1/messages/count_tokens": {"post"},
+    "/api/chat": {"post"},
+    "/api/tags": {"get"},
+    "/api/show": {"post"},
+    "/api/ps": {"get"},
 }
 
 PUBLIC_OPERATIONS = {
     ("/health", "get"),
+    ("/health/db", "get"),
     ("/health/ready", "get"),
     ("/api/v1/auth/login", "post"),
     ("/api/v1/auth/guest", "post"),
@@ -53,6 +69,31 @@ DOCUMENTED_EXAMPLE_SCHEMAS = (
     "HealthResponse",
     "ReadinessResponse",
     "LoginRequest",
+    "DbHealthResponse",
+    "DbStatusResponse",
+    "UserCreate",
+    "UserUpdate",
+    "UserResponse",
+    "UserCreateResponse",
+    "UserPage",
+    "BulkCreateRequest",
+    "BulkCreateResponse",
+    "ResetPasswordRequest",
+    "ResetPasswordResponse",
+    "CleanupResponse",
+    "OpenAIChatRequest",
+    "OpenAIChatResponse",
+    "OpenAIModelList",
+    "AnthropicMessageRequest",
+    "AnthropicMessageResponse",
+    "AnthropicCountTokensRequest",
+    "AnthropicCountTokensResponse",
+    "OllamaChatRequest",
+    "OllamaChatResponse",
+    "OllamaTagsResponse",
+    "OllamaShowRequest",
+    "OllamaShowResponse",
+    "OllamaPsResponse",
 )
 
 
@@ -113,7 +154,7 @@ def test_write_operations_document_the_request_body(client: TestClient) -> None:
     for path, method, operation in _operations(spec):
         if method != "post":
             continue
-        if path == "/api/v1/auth/guest":
+        if path in {"/api/v1/auth/guest", "/api/v1/admin/users/cleanup"}:
             assert "requestBody" not in operation
             continue
         assert operation.get("requestBody"), f"POST {path} sem requestBody"
@@ -131,6 +172,33 @@ def test_chat_documents_json_and_sse(client: TestClient) -> None:
     assert sse["schema"]["type"] == "string"
     assert "event: done" in sse["example"]
     assert "data:" in sse["example"]
+
+
+def test_messages_documents_json_and_sse(client: TestClient) -> None:
+    spec = _spec(client)
+    operation = spec["paths"]["/v1/messages"]["post"]
+    content = operation["responses"]["200"]["content"]
+
+    assert set(content) == {"application/json", "text/event-stream"}
+    assert content["application/json"]["schema"]["$ref"].endswith("/AnthropicMessageResponse")
+    sse = content["text/event-stream"]
+    assert sse["schema"]["type"] == "string"
+    assert "event: message_start" in sse["example"]
+    assert "event: message_stop" in sse["example"]
+
+
+def test_ollama_chat_documents_json_and_ndjson(client: TestClient) -> None:
+    spec = _spec(client)
+    operation = spec["paths"]["/api/chat"]["post"]
+    content = operation["responses"]["200"]["content"]
+
+    assert set(content) == {"application/json", "application/x-ndjson"}
+    assert content["application/json"]["schema"]["$ref"].endswith("/OllamaChatResponse")
+    ndjson = content["application/x-ndjson"]
+    assert ndjson["schema"]["type"] == "string"
+    lines = [line for line in ndjson["example"].splitlines() if line]
+    assert all(json.loads(line) for line in lines)
+    assert json.loads(lines[-1])["done"] is True
 
 
 def test_protected_operations_use_bearer_auth(client: TestClient) -> None:

@@ -23,7 +23,7 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """Resposta do login do administrador."""
+    """Resposta do login (admin ou usuário de teste)."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -33,6 +33,7 @@ class TokenResponse(BaseModel):
                 "token_type": "bearer",
                 "expires_in": 3600,
                 "role": "admin",
+                "user_id": "00000000-0000-0000-0000-000000000001",
             }
         },
     )
@@ -41,6 +42,10 @@ class TokenResponse(BaseModel):
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
     role: Role
+    user_id: str | None = Field(
+        default=None,
+        description="UUID do admin ou do usuário de teste; `null` para guest.",
+    )
 
 
 class GuestTokenResponse(TokenResponse):

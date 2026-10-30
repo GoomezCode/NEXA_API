@@ -149,6 +149,9 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
+# SQLite local (F13) — nunca versionar banco/backups
+/data/
+
 # Environments
 .env
 .envrc

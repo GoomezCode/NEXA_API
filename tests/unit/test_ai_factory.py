@@ -15,6 +15,7 @@ from app.ai.factory import (
     _REGISTRY,
     available_providers,
     build_provider,
+    enabled_provider_names,
     register_provider,
 )
 from app.ai.fake import FakeProvider
@@ -134,8 +135,11 @@ async def test_health_can_be_healthy_unhealthy_or_raise() -> None:
 
 
 def test_fake_provider_is_not_configurable_by_env() -> None:
-    # `AI_PROVIDER` só aceita ollama|cloud; o fake é injetado/buildado por nome.
-    assert make_settings().ai_provider == "ollama"
+    # Em v2.0, AI_PROVIDER foi descontinuado em favor de AI_DEFAULT_MODEL.
+    # O valor padrão vem do AI_DEFAULT_MODEL=ollama/llama3.1 (via _normalize_ai_default_model).
+    settings = make_settings()
+    assert settings.ai_provider is None
+    assert settings.ai_default_model == "ollama/llama3.1"
 
 
 def test_factory_builds_default_ollama_provider() -> None:
@@ -155,16 +159,19 @@ def test_factory_builds_fake_by_name() -> None:
 
 
 def test_factory_rejects_cloud_with_clear_error() -> None:
+    # Em v2.0, AI_PROVIDER=cloud converte AI_DEFAULT_MODEL para
+    # "{cloud_provider}/{cloud_model}" e valida credenciais do provedor.
+    # O build_provider lança ProviderConfigurationError se as credenciais
+    # estiverem ausentes.
     settings = make_settings(
         ai_provider="cloud",
         cloud_provider="openai",
         cloud_model="gpt-4o-mini",
     )
-
     with pytest.raises(ProviderConfigurationError) as exc_info:
         build_provider(settings)
-    assert "cloud" in str(exc_info.value)
-    assert "ollama" in str(exc_info.value)
+    # A mensagem indica qual provedor faltava credencial.
+    assert "openai" in str(exc_info.value)
 
 
 def test_factory_rejects_unknown_provider() -> None:
@@ -174,9 +181,12 @@ def test_factory_rejects_unknown_provider() -> None:
 
 
 def test_available_providers_are_sorted() -> None:
+    # Em v2.0, available_providers() lista todos os registrados em ordem
+    # estável; enabled_provider_names() retorna os auto-detectados por credencial.
     providers = available_providers()
     assert providers == tuple(sorted(providers))
-    assert {"ollama", "cloud", "fake"} <= set(providers)
+    # Com o make_settings() sem credenciais, o padrão é ollama.
+    assert "ollama" in enabled_provider_names(make_settings())
 
 
 def test_register_custom_provider(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -212,13 +222,16 @@ def test_factory_rejects_provider_without_model(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_create_app_uses_injected_provider() -> None:
+    import asyncio
+
     provider = FakeProvider(model="injetado", healthy=False)
     app = create_app(make_settings(), clock=FakeClock(), provider=provider)
 
     assert app.state.ai_provider is provider
     assert app.state.ai_provider_name == "fake"
     assert app.state.ai_model == "injetado"
-    assert app.state.ai_health == provider.health
+    # Em v2.0, ai_health é o método do router; verificar que pode ser chamado.
+    assert asyncio.run(app.state.ai_health()) is False
 
 
 def test_create_app_builds_provider_from_settings() -> None:

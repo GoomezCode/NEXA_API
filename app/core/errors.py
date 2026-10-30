@@ -35,9 +35,21 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
     "token_expired": ErrorSpec(401, "Não autorizado", "O token expirou."),
     "invalid_token": ErrorSpec(401, "Não autorizado", "Token ausente ou inválido."),
     "forbidden": ErrorSpec(403, "Acesso negado", "Você não tem permissão para este recurso."),
+    "test_users_disabled": ErrorSpec(
+        403, "Usuários de teste desabilitados", "A criação de usuários de teste está desabilitada."
+    ),
     "not_found": ErrorSpec(404, "Não encontrado", "O recurso solicitado não existe."),
     "method_not_allowed": ErrorSpec(
         405, "Método não permitido", "O método HTTP não é suportado por este recurso."
+    ),
+    "admin_protected": ErrorSpec(
+        409, "Administrador protegido", "O administrador não pode ser alterado nem removido."
+    ),
+    "username_conflict": ErrorSpec(
+        409, "Usuário já existe", "O username ou e-mail informado já está em uso."
+    ),
+    "user_not_deletable": ErrorSpec(
+        409, "Usuário não removível", "Somente usuários de teste podem ser excluídos."
     ),
     "payload_too_large": ErrorSpec(
         413, "Corpo muito grande", "O corpo da requisição excede o limite permitido."
@@ -46,11 +58,23 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
         415, "Tipo de mídia não suportado", "Envie o corpo como application/json."
     ),
     "validation_error": ErrorSpec(422, "Requisição inválida", "Um ou mais campos são inválidos."),
+    "model_not_found": ErrorSpec(
+        422, "Modelo não encontrado", "O Model ID informado não existe no provedor."
+    ),
+    "model_not_allowed": ErrorSpec(
+        422, "Modelo não permitido", "O Model ID não é permitido por AI_ALLOWED_MODELS."
+    ),
+    "unsupported_capability": ErrorSpec(
+        422, "Capacidade não suportada", "O modelo escolhido não suporta a capacidade exigida."
+    ),
     "rate_limited": ErrorSpec(
         429, "Limite excedido", "Muitas requisições em pouco tempo. Tente novamente em instantes."
     ),
     "guest_daily_limit_reached": ErrorSpec(
         429, "Limite diário excedido", "A cota diária de mensagens foi atingida."
+    ),
+    "user_daily_limit_reached": ErrorSpec(
+        429, "Limite diário excedido", "A cota diária de mensagens do usuário foi atingida."
     ),
     "ip_daily_limit_reached": ErrorSpec(
         429, "Limite diário excedido", "A cota diária de mensagens deste local/rede foi atingida."
@@ -67,6 +91,9 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
     ),
     "provider_unavailable": ErrorSpec(
         503, "Serviço indisponível", "O provedor de IA não está disponível."
+    ),
+    "database_unavailable": ErrorSpec(
+        503, "Banco indisponível", "O banco de usuários não está disponível."
     ),
     "ai_provider_timeout": ErrorSpec(
         504, "Timeout do provedor de IA", "O provedor de IA não respondeu a tempo."
@@ -262,6 +289,15 @@ async def validation_error_handler(request: Request, exc: Exception) -> JSONResp
 async def http_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Padroniza exceções HTTP do Starlette/FastAPI."""
     assert isinstance(exc, StarletteHTTPException)
+    from app.compat.errors import compat_http_exception_response, is_compat_path
+
+    if is_compat_path(request.url.path):
+        # Erros de rota da compatibilidade usam o envelope da superfície (RF-CMP-06).
+        return compat_http_exception_response(
+            request,
+            status_code=exc.status_code,
+            detail=exc.detail if isinstance(exc.detail, str) else None,
+        )
     code = _status_to_code(exc.status_code)
     # Para status conhecidos usa-se o texto do catálogo; detalhes explícitos de
     # rotas (status fora do catálogo) são preservados quando existirem.

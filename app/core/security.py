@@ -15,12 +15,12 @@ from jwt import InvalidTokenError
 from app.config import Settings
 from app.core.errors import ApiError
 
-Role = Literal["admin", "guest"]
-VALID_ROLES: frozenset[str] = frozenset({"admin", "guest"})
+Role = Literal["admin", "user", "guest"]
+VALID_ROLES: frozenset[str] = frozenset({"admin", "user", "guest"})
 
 # Hash argon2id de uma senha aleatória, usado para igualar o custo de verificação
 # quando o usuário informado não existe (RF-AUT-04).
-_DUMMY_PASSWORD_HASH = (
+DUMMY_PASSWORD_HASH = (
     "$argon2id$v=19$m=65536,t=3,p=4$qSAMcrNYkIeox0WVWhAVQA$"
     "AxML0bnKCoIY+RBSDMJYq4GTmQjkaKE2/Im5l+vyMpc"
 )
@@ -114,6 +114,7 @@ def decode_access_token(
 
 
 __all__ = [
+    "DUMMY_PASSWORD_HASH",
     "VALID_ROLES",
     "Role",
     "TokenPayload",

@@ -1,7 +1,11 @@
-# Matriz CA → teste — Nexa API v1.1.0
+# Matriz CA → teste — Nexa API (v1.1.0 e v2.0 planejada)
 
-Rastreabilidade dos critérios de aceitação (SRS v1.2, §4) para os testes
-automatizados. Execute a matriz completa com:
+Rastreabilidade dos critérios de aceitação para os testes automatizados.
+
+- **v1.1.0:** SRS v1.2, CA-01..CA-25, implementados e verificados.
+- **v2.0:** SRS v2.0; CA-26..CA-39 e CA-40..CA-45 **implementados** (F12–F16); CA-46 e CA-47 planejados (⏳) para a fase F17.
+
+Execute a matriz completa com:
 
 ```bash
 .venv/bin/pytest -q
@@ -58,3 +62,48 @@ automatizados. Execute a matriz completa com:
   em 28/10/2026 — ver [`aceitacao-manual-2026-10-28.md`](aceitacao-manual-2026-10-28.md).
 - **CA-18**: relatório de cobertura publicado como artefato no CI.
 - **CA-23**: validado por teste unitário de `Settings` (o processo nem inicia).
+
+---
+
+## v2.0 — critérios planejados (F12–F17)
+
+> **Status:** ⏳ planejado. Nenhum item abaixo está implementado até a conclusão
+> das fases F12–F17. Os caminhos de teste são os previstos no
+> [plano v2.0](plano-implementacao-api-chat-ia-v1.md).
+
+| CA | Critério (resumo) | Testes previstos | Status |
+|---|---|---|---|
+| CA-26 | Roteamento `provider/model`, alias e nome sem prefixo; desconhecido → `422` | `tests/unit/test_ai_router.py`, `tests/integration/test_chat.py` | ⏳ |
+| CA-27 | Seis provedores registrados; boot falha se provedor habilitado não tiver credencial | `tests/unit/test_config.py`, `tests/unit/test_ai_registry.py` | ⏳ |
+| CA-28 | Catálogo agregado com provedores, capacidades, `selectable` e `?refresh=true` | `tests/integration/test_models.py`, `tests/unit/test_model_catalog.py` | ⏳ |
+| CA-29 | Capacidade incompatível → `422 unsupported_capability` sem cota | `tests/integration/test_chat.py`, `tests/unit/test_capabilities.py` | ⏳ |
+| CA-30 | Fallback somente antes do 1º token, com cota única | `tests/unit/test_ai_router.py`, `tests/integration/test_chat.py` | ⏳ |
+| CA-31 | `POST /v1/chat/completions` JSON no shape OpenAI | `tests/contract/test_openai.py::test_json_chat_returns_openai_shape`, `test_tools_are_translated_to_and_from_openai` | ✅ |
+| CA-32 | Streaming OpenAI com `chat.completion.chunk` + `[DONE]` | `tests/contract/test_openai.py::test_stream_emits_chunks_and_done`, `test_stream_errors_use_openai_envelope_without_done` | ✅ |
+| CA-33 | `GET /v1/models` no shape `{"object":"list","data":[...]}` | `tests/contract/test_openai.py::test_models_endpoint_returns_openai_list` | ✅ |
+| CA-34 | `POST /v1/messages` JSON no shape Anthropic | `tests/contract/test_anthropic.py::test_json_message_returns_anthropic_shape`, `test_tools_and_tool_use_are_translated` | ✅ |
+| CA-35 | Streaming Anthropic + `tool_use` | `tests/contract/test_anthropic.py::test_stream_emits_the_anthropic_event_sequence`, `test_stream_with_tools_emits_tool_use_block` | ✅ |
+| CA-36 | Claude Code E2E (tools, system, streaming, `count_tokens`) | `tests/e2e/test_claude_code.py::test_claude_code_tool_round_trip` | ✅ |
+| CA-37 | `/api/chat` NDJSON + `/api/tags` no shape Ollama | `tests/contract/test_ollama_compat.py::test_stream_is_ndjson_and_ends_with_done`, `test_tags_returns_ollama_shape`, `test_show_accepts_canonical_id_and_plain_name`, `test_ps_returns_empty_list`; `tests/e2e/test_ollama_client.py::test_ollama_client_tool_round_trip` | ✅ |
+| CA-38 | Auth por API key, cotas/rate limit e envelope correto | `tests/contract/test_openai.py`, `tests/contract/test_anthropic.py::test_missing_or_invalid_api_key_uses_anthropic_envelope`, `test_api_key_rate_limit_returns_429`, `tests/contract/test_ollama_compat.py::test_missing_or_invalid_api_key_uses_ollama_envelope`, `test_localhost_access_is_opt_in`, `test_api_key_rate_limit_returns_429`; `tests/unit/test_api_keys.py` | ✅ |
+| CA-39 | Chaves de provedor/API keys nunca expostas | `tests/unit/test_logging.py`, `tests/unit/test_api_keys.py`, `tests/contract/test_openai.py::test_json_chat_returns_openai_shape`, `tests/contract/test_anthropic.py::test_json_message_returns_anthropic_shape`, `tests/contract/test_ollama_compat.py::test_json_chat_returns_ollama_shape` | ✅ |
+| CA-40 | Login do admin funciona sem SQLite (fallback) | `tests/integration/test_users.py::test_admin_login_survives_database_removal`, `test_degraded_mode_keeps_admin_login_and_reports_unavailable`; `tests/integration/test_auth.py` | ✅ |
+| CA-41 | Admin inviolável por API e por SQL direto (triggers) | `tests/integration/test_users.py::test_admin_is_protected_on_every_write_route`; `tests/unit/test_user_repository.py::test_admin_cannot_be_deleted_or_demoted_by_sql`, `test_single_admin_and_protected_check_constraints` | ✅ |
+| CA-42 | Ciclo de vida de usuários de teste; limpeza só `is_test=1` | `tests/integration/test_users.py::test_full_test_user_lifecycle`, `test_cleanup_removes_expired_users_but_never_the_admin`; `tests/unit/test_user_repository.py::test_cleanup_removes_only_expired_test_users` | ✅ |
+| CA-43 | Metas de performance do SQLite | `tests/performance/test_sqlite.py`, `scripts/db_benchmark.py` | ✅ |
+| CA-44 | Migrações preservam admin, criam backup e recusam boot se ausente | `tests/unit/test_user_repository.py::test_migrations_are_idempotent_and_seed_the_admin`, `test_migration_creates_backup_and_restore_preserves_data`, `test_admin_seed_conflicts_with_existing_username`; `tests/integration/test_users.py::test_degraded_mode_keeps_admin_login_and_reports_unavailable` | ✅ |
+| CA-45 | SQLite contém apenas usuários/migrações; nenhum conteúdo de chat | `tests/integration/test_users.py::test_database_has_no_chat_tables`; `tests/unit/test_user_repository.py::test_only_users_and_migrations_are_stored`; `tests/integration/test_chat.py` | ✅ |
+| CA-46 | README, `.env.example`, SRS, plano, matriz e OpenAPI consistentes | `tests/integration/test_openapi_contract.py`, revisão de docs | ⏳ |
+| CA-47 | Contratos de compatibilidade e segurança de chaves verdes | `tests/contract/*`, `tests/e2e/test_claude_code.py` | ⏳ |
+
+### Observações da v2.0
+
+- **CA-06 revisado:** o critério continua exigindo que nenhum conteúdo de
+  mensagem seja persistido; o SQLite passa a existir, mas somente para usuários
+  (ver CA-45).
+- **CA-15 revisado:** a troca de provedor passa a ser feita por `AI_DEFAULT_MODEL`
+  / Model ID, não mais por `AI_PROVIDER`/`CLOUD_PROVIDER`.
+- **CA-24/CA-25 revisados:** o catálogo e a seleção passam a cobrir múltiplos
+  provedores e o formato `provider/model`.
+- Os testes de performance são executados em job separado no CI, com tolerância
+  de ambiente; regressões acima de 20% geram alerta.
