@@ -11,7 +11,7 @@
 | **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v2.0) |
 | **Escopo** | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
-| **Estado** | **Concluído** - F16 implementado em 30/10/2026. Próxima: F17 (hardening, performance e release). |
+| **Estado** | **Concluído** - F17 hardening, performance e release `v2.0.0` finalizado. |
 
 ### Histórico de revisões
 
