@@ -3,7 +3,7 @@
 Rastreabilidade dos critérios de aceitação para os testes automatizados.
 
 - **v1.1.0:** SRS v1.2, CA-01..CA-25, implementados e verificados.
-- **v2.0:** SRS v2.0; CA-26..CA-33 e CA-40..CA-45 **implementados** (F12–F14); CA-34..CA-39, CA-46 e CA-47 planejados (⏳) para as fases F15–F17.
+- **v2.0:** SRS v2.0; CA-26..CA-36, CA-38, CA-39 e CA-40..CA-45 **implementados** (F12–F15); CA-37, CA-46 e CA-47 planejados (⏳) para as fases F16–F17.
 
 Execute a matriz completa com:
 
@@ -81,12 +81,12 @@ Execute a matriz completa com:
 | CA-31 | `POST /v1/chat/completions` JSON no shape OpenAI | `tests/contract/test_openai.py::test_json_chat_returns_openai_shape`, `test_tools_are_translated_to_and_from_openai` | ✅ |
 | CA-32 | Streaming OpenAI com `chat.completion.chunk` + `[DONE]` | `tests/contract/test_openai.py::test_stream_emits_chunks_and_done`, `test_stream_errors_use_openai_envelope_without_done` | ✅ |
 | CA-33 | `GET /v1/models` no shape `{"object":"list","data":[...]}` | `tests/contract/test_openai.py::test_models_endpoint_returns_openai_list` | ✅ |
-| CA-34 | `POST /v1/messages` JSON no shape Anthropic | `tests/contract/test_anthropic.py` | ⏳ |
-| CA-35 | Streaming Anthropic + `tool_use` | `tests/contract/test_anthropic.py` | ⏳ |
-| CA-36 | Claude Code E2E (tools, system, streaming, `count_tokens`) | `tests/e2e/test_claude_code.py` | ⏳ |
+| CA-34 | `POST /v1/messages` JSON no shape Anthropic | `tests/contract/test_anthropic.py::test_json_message_returns_anthropic_shape`, `test_tools_and_tool_use_are_translated` | ✅ |
+| CA-35 | Streaming Anthropic + `tool_use` | `tests/contract/test_anthropic.py::test_stream_emits_the_anthropic_event_sequence`, `test_stream_with_tools_emits_tool_use_block` | ✅ |
+| CA-36 | Claude Code E2E (tools, system, streaming, `count_tokens`) | `tests/e2e/test_claude_code.py::test_claude_code_tool_round_trip` | ✅ |
 | CA-37 | `/api/chat` NDJSON + `/api/tags` no shape Ollama | `tests/contract/test_ollama.py` | ⏳ |
-| CA-38 | Auth por API key, cotas/rate limit e envelope correto | `tests/contract/*`, `tests/integration/test_compat_auth.py` | ⏳ |
-| CA-39 | Chaves de provedor/API keys nunca expostas | `tests/unit/test_logging.py`, `tests/integration/test_compat_auth.py` | ⏳ |
+| CA-38 | Auth por API key, cotas/rate limit e envelope correto | `tests/contract/test_openai.py`, `tests/contract/test_anthropic.py::test_missing_or_invalid_api_key_uses_anthropic_envelope`, `test_api_key_rate_limit_returns_429`; `tests/unit/test_api_keys.py` | ✅ |
+| CA-39 | Chaves de provedor/API keys nunca expostas | `tests/unit/test_logging.py`, `tests/unit/test_api_keys.py`, `tests/contract/test_openai.py::test_json_chat_returns_openai_shape`, `tests/contract/test_anthropic.py::test_json_message_returns_anthropic_shape` | ✅ |
 | CA-40 | Login do admin funciona sem SQLite (fallback) | `tests/integration/test_users.py::test_admin_login_survives_database_removal`, `test_degraded_mode_keeps_admin_login_and_reports_unavailable`; `tests/integration/test_auth.py` | ✅ |
 | CA-41 | Admin inviolável por API e por SQL direto (triggers) | `tests/integration/test_users.py::test_admin_is_protected_on_every_write_route`; `tests/unit/test_user_repository.py::test_admin_cannot_be_deleted_or_demoted_by_sql`, `test_single_admin_and_protected_check_constraints` | ✅ |
 | CA-42 | Ciclo de vida de usuários de teste; limpeza só `is_test=1` | `tests/integration/test_users.py::test_full_test_user_lifecycle`, `test_cleanup_removes_expired_users_but_never_the_admin`; `tests/unit/test_user_repository.py::test_cleanup_removes_only_expired_test_users` | ✅ |

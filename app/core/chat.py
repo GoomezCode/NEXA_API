@@ -26,8 +26,13 @@ def context_errors(
     *,
     role: Role,
     settings: Settings,
+    allow_system: bool = False,
 ) -> list[ValidationErrorItem]:
-    """Valida limites e mensagens `system` do papel do chamador."""
+    """Valida limites e mensagens `system` do papel do chamador.
+
+    `allow_system` é usado pelas superfícies de compatibilidade, onde o campo
+    `system` faz parte do protocolo externo (ex.: Anthropic/Claude Code).
+    """
     errors: list[ValidationErrorItem] = []
     max_messages, max_chars = limits_for(role=role, settings=settings)
 
@@ -53,7 +58,7 @@ def context_errors(
         None,
     )
     for index, message in enumerate(messages):
-        if message.role != "system":
+        if message.role != "system" or allow_system:
             continue
         if role == "guest":
             errors.append(

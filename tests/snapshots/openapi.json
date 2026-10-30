@@ -31,6 +31,660 @@
         "title": "AiStatusResponse",
         "type": "object"
       },
+      "AnthropicContentBlock": {
+        "additionalProperties": true,
+        "description": "Bloco de conteúdo de `messages[].content` ou `system`.\n\nO modelo é permissivo de propósito: tipos desconhecidos são rejeitados na\ntradução com `400 invalid_request_error`, mantendo a mensagem do contrato\nAnthropic em vez do 422 genérico do FastAPI.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "input": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input"
+          },
+          "is_error": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Error"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "tool_use_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Use Id"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "AnthropicContentBlock",
+        "type": "object"
+      },
+      "AnthropicCountTokensRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /v1/messages/count_tokens`.",
+        "example": {
+          "messages": [
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "model": "anthropic/claude-sonnet-4-5",
+          "system": "Você é um assistente útil."
+        },
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AnthropicMessage"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicContentBlock"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnthropicToolChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicTool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "model",
+          "messages"
+        ],
+        "title": "AnthropicCountTokensRequest",
+        "type": "object"
+      },
+      "AnthropicCountTokensResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /v1/messages/count_tokens`.",
+        "example": {
+          "input_tokens": 42
+        },
+        "properties": {
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens"
+        ],
+        "title": "AnthropicCountTokensResponse",
+        "type": "object"
+      },
+      "AnthropicMessage": {
+        "additionalProperties": true,
+        "description": "Mensagem de entrada (`user` ou `assistant`).",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicContentBlock"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Content"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "AnthropicMessage",
+        "type": "object"
+      },
+      "AnthropicMessageRequest": {
+        "additionalProperties": true,
+        "description": "Corpo de `POST /v1/messages`.",
+        "example": {
+          "max_tokens": 1024,
+          "messages": [
+            {
+              "content": "Olá!",
+              "role": "user"
+            }
+          ],
+          "metadata": {
+            "user_id": "usuario-123"
+          },
+          "model": "anthropic/claude-sonnet-4-5",
+          "stop_sequences": [
+            "\n\nHuman:"
+          ],
+          "stream": false,
+          "system": "Você é um assistente útil.",
+          "temperature": 0.7,
+          "top_k": 40,
+          "top_p": 1.0
+        },
+        "properties": {
+          "max_tokens": {
+            "minimum": 1.0,
+            "title": "Max Tokens",
+            "type": "integer"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AnthropicMessage"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "stop_sequences": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Sequences"
+          },
+          "stream": {
+            "default": false,
+            "title": "Stream",
+            "type": "boolean"
+          },
+          "system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicContentBlock"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "tool_choice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnthropicToolChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AnthropicTool"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          }
+        },
+        "required": [
+          "model",
+          "messages",
+          "max_tokens"
+        ],
+        "title": "AnthropicMessageRequest",
+        "type": "object"
+      },
+      "AnthropicMessageResponse": {
+        "additionalProperties": false,
+        "description": "Resposta de `POST /v1/messages` (CA-34).",
+        "example": {
+          "content": [
+            {
+              "text": "Olá! Como posso ajudar?",
+              "type": "text"
+            }
+          ],
+          "id": "msg_nexa_0192f3a4000070008000",
+          "model": "claude-sonnet-4-5",
+          "role": "assistant",
+          "stop_reason": "end_turn",
+          "type": "message",
+          "usage": {
+            "input_tokens": 12,
+            "output_tokens": 8
+          }
+        },
+        "properties": {
+          "content": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "text": "#/components/schemas/AnthropicTextBlock",
+                  "tool_use": "#/components/schemas/AnthropicToolUseBlock"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AnthropicTextBlock"
+                },
+                {
+                  "$ref": "#/components/schemas/AnthropicToolUseBlock"
+                }
+              ]
+            },
+            "title": "Content",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "role": {
+            "const": "assistant",
+            "default": "assistant",
+            "title": "Role",
+            "type": "string"
+          },
+          "stop_reason": {
+            "enum": [
+              "end_turn",
+              "max_tokens",
+              "stop_sequence",
+              "tool_use"
+            ],
+            "title": "Stop Reason",
+            "type": "string"
+          },
+          "stop_sequence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Sequence"
+          },
+          "type": {
+            "const": "message",
+            "default": "message",
+            "title": "Type",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/AnthropicUsage"
+          }
+        },
+        "required": [
+          "id",
+          "model",
+          "content",
+          "stop_reason",
+          "usage"
+        ],
+        "title": "AnthropicMessageResponse",
+        "type": "object"
+      },
+      "AnthropicTextBlock": {
+        "additionalProperties": false,
+        "description": "Bloco `text` da resposta.",
+        "properties": {
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text",
+            "default": "text",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "AnthropicTextBlock",
+        "type": "object"
+      },
+      "AnthropicTool": {
+        "additionalProperties": true,
+        "description": "Ferramenta declarada no contrato Anthropic (`input_schema`).",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "input_schema": {
+            "additionalProperties": true,
+            "title": "Input Schema",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AnthropicTool",
+        "type": "object"
+      },
+      "AnthropicToolChoice": {
+        "additionalProperties": true,
+        "description": "`tool_choice`: `auto`, `any`, `tool` ou `none`.",
+        "properties": {
+          "disable_parallel_tool_use": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disable Parallel Tool Use"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "type": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "any",
+              "tool",
+              "none"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "AnthropicToolChoice",
+        "type": "object"
+      },
+      "AnthropicToolUseBlock": {
+        "additionalProperties": false,
+        "description": "Bloco `tool_use` da resposta (execução é do cliente).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "additionalProperties": true,
+            "title": "Input",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "const": "tool_use",
+            "default": "tool_use",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AnthropicToolUseBlock",
+        "type": "object"
+      },
+      "AnthropicUsage": {
+        "additionalProperties": false,
+        "description": "Tokens de entrada/saída, no shape Anthropic.",
+        "properties": {
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "output_tokens"
+        ],
+        "title": "AnthropicUsage",
+        "type": "object"
+      },
       "AssistantMessage": {
         "additionalProperties": false,
         "description": "Mensagem de resposta do assistente.",
@@ -3902,6 +4556,122 @@
         "summary": "Chat no formato OpenAI",
         "tags": [
           "Compatibilidade OpenAI"
+        ]
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "description": "Traduz o contrato Anthropic (blocos de conteúdo, `system`, `tools`, `tool_use`) para o pipeline nativo. Devolve `message` (JSON) ou a sequência de eventos SSE tipados usada pelo Claude Code.",
+        "operationId": "create_message_v1_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnthropicMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicMessageResponse"
+                }
+              },
+              "text/event-stream": {
+                "example": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_nexa_0192\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":0,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Olá\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":7}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Mensagem JSON ou stream SSE tipado."
+          },
+          "400": {
+            "description": "Bloco ou parâmetro não suportado."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "description": "Requisição inválida."
+          },
+          "429": {
+            "description": "Rate limit ou cota excedida."
+          },
+          "502": {
+            "description": "Erro do provedor de IA."
+          },
+          "504": {
+            "description": "Timeout do provedor de IA."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Messages API no formato Anthropic",
+        "tags": [
+          "Compatibilidade Anthropic"
+        ]
+      }
+    },
+    "/v1/messages/count_tokens": {
+      "post": {
+        "description": "Conta os tokens de entrada usando `count_tokens` do provedor quando disponível; caso contrário, aplica a estimativa documentada de ~4 caracteres por token. Não consome cota.",
+        "operationId": "count_tokens_v1_messages_count_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnthropicCountTokensRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicCountTokensResponse"
+                }
+              }
+            },
+            "description": "Contagem de tokens de entrada."
+          },
+          "400": {
+            "description": "Bloco ou parâmetro não suportado."
+          },
+          "401": {
+            "description": "API key ausente ou inválida."
+          },
+          "404": {
+            "description": "Modelo inexistente."
+          },
+          "422": {
+            "description": "Requisição inválida."
+          },
+          "429": {
+            "description": "Rate limit da API key excedido."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Contagem de tokens no formato Anthropic",
+        "tags": [
+          "Compatibilidade Anthropic"
         ]
       }
     },

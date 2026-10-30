@@ -13,6 +13,7 @@ from app import __version__
 from app.ai import AIProvider, build_registry, provider_label
 from app.ai.router import ProviderRouter
 from app.api import admin, auth, chat, models, system, usage, users
+from app.compat.anthropic import router as anthropic_compat_router
 from app.compat.errors import CompatApiError, compat_error_handler
 from app.compat.openai import router as openai_compat_router
 from app.config import Settings, get_settings
@@ -48,7 +49,14 @@ EXPOSED_HEADERS = [
     "Content-Type",
 ]
 
-ALLOWED_HEADERS = ["Authorization", "Content-Type", "X-Request-ID"]
+ALLOWED_HEADERS = [
+    "Authorization",
+    "Content-Type",
+    "X-Request-ID",
+    "x-api-key",
+    "anthropic-version",
+    "anthropic-beta",
+]
 ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
 
 logger = get_logger("nexa.app")
@@ -205,6 +213,8 @@ def create_app(
     app.include_router(users.router)
     if resolved.compat_openai_enabled:
         app.include_router(openai_compat_router)
+    if resolved.compat_anthropic_enabled:
+        app.include_router(anthropic_compat_router)
     return app
 
 

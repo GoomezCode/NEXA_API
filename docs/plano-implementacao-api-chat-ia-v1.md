@@ -11,7 +11,7 @@
 | **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v2.0) |
 | **Escopo** | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
-| **Estado** | **Concluído** - F14 implementado em 29/10/2026. Próxima: F15 (compatibilidade Anthropic / Claude Code). |
+| **Estado** | **Concluído** - F15 implementado em 30/10/2026. Próxima: F16 (compatibilidade Ollama). |
 
 ### Histórico de revisões
 
@@ -587,13 +587,13 @@ Tamanhos: **S** ≈ 2–4 h, **M** ≈ 4–6 h, **L** ≈ 1 dia. Cada tarefa ent
 
 **Tarefas**
 
-- [ ] `POST /v1/messages` JSON com `model`, `max_tokens`, `system` (string/blocos), `messages` (string/blocos), `tools`, `tool_choice`, `temperature`, `top_p`, `top_k`, `stop_sequences`, `metadata`.
-- [ ] Resposta com `content[]` (`text`, `tool_use`), `stop_reason`, `stop_sequence`, `usage`.
-- [ ] Streaming: `message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`, `ping`, `error`.
-- [ ] `POST /v1/messages/count_tokens` (contagem real ou estimativa documentada).
-- [ ] Headers `anthropic-version`, `x-api-key`/Bearer, `anthropic-beta` (aceitar/ignorar conforme documentado).
-- [ ] Envelope de erro Anthropic e testes de contrato.
-- [ ] Teste E2E com Claude Code apontando `ANTHROPIC_BASE_URL` para a API.
+- [x] `POST /v1/messages` JSON com `model`, `max_tokens`, `system` (string/blocos), `messages` (string/blocos), `tools`, `tool_choice`, `temperature`, `top_p`, `top_k`, `stop_sequences`, `metadata`.
+- [x] Resposta com `content[]` (`text`, `tool_use`), `stop_reason`, `stop_sequence`, `usage`.
+- [x] Streaming: `message_start`, `content_block_start`, `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`, `ping`, `error`.
+- [x] `POST /v1/messages/count_tokens` (contagem real ou estimativa documentada).
+- [x] Headers `anthropic-version`, `x-api-key`/Bearer, `anthropic-beta` (aceitar/ignorar conforme documentado).
+- [x] Envelope de erro Anthropic e testes de contrato.
+- [x] Teste E2E com Claude Code apontando `ANTHROPIC_BASE_URL` para a API.
 
 **Testes:** golden de request/response; streaming; tools/`tool_use`; system em blocos; `count_tokens`; modelo inválido; cota; API key; Claude Code E2E.
 
@@ -852,12 +852,12 @@ Regras:
 - [ ] CA-31 OpenAI JSON
 - [ ] CA-32 OpenAI streaming + `[DONE]`
 - [ ] CA-33 OpenAI `/v1/models`
-- [ ] CA-34 Anthropic JSON
-- [ ] CA-35 Anthropic streaming + tools
-- [ ] CA-36 Claude Code E2E
+- [x] CA-34 Anthropic JSON
+- [x] CA-35 Anthropic streaming + tools
+- [x] CA-36 Claude Code E2E
 - [ ] CA-37 Ollama NDJSON + tags
-- [ ] CA-38 auth/cotas nas rotas de compatibilidade
-- [ ] CA-39 chaves nunca expostas
+- [x] CA-38 auth/cotas nas rotas de compatibilidade
+- [x] CA-39 chaves nunca expostas
 - [x] CA-40 login do admin sem SQLite
 - [x] CA-41 admin inviolável (API + triggers)
 - [x] CA-42 ciclo de vida de usuários de teste

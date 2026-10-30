@@ -2,7 +2,8 @@
 
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
-> **Estado:** OpenAI implementado na F14; Anthropic e Ollama planejados para F15–F16. A API em produção permanece na v1.1.0.
+> **Estado:** OpenAI implementado na F14 e Anthropic/Claude Code na F15; Ollama
+> planejado para a F16. A API em produção permanece na v1.1.0.
 
 ## 1. Objetivo
 
@@ -310,8 +311,10 @@ qualquer momento; `error` encerra o stream.
 ```
 
 - Usa a contagem do provedor quando disponível.
-- Caso contrário, usa `tiktoken`/heurística documentada, com margem de erro.
-- Não consome cota.
+- Caso contrário, usa a heurística documentada de **~4 caracteres por token**
+  (`ceil(caracteres / 4)`, mínimo 1), com margem de erro; `tools` também entram
+  na estimativa.
+- Não consome cota (o limite por minuto da API key continua valendo).
 
 ### 4.8 Erros
 

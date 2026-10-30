@@ -13,6 +13,36 @@ from fastapi.responses import JSONResponse
 from app.core.errors import ValidationErrorItem, spec_for
 
 OPENAI_PATH_PREFIX = "/v1"
+ANTHROPIC_PATH_PREFIX = "/v1/messages"
+
+#: `error.type` do envelope Anthropic para cada código interno (docs §4.8).
+_ANTHROPIC_TYPES: dict[str, str] = {
+    "invalid_api_key": "authentication_error",
+    "invalid_token": "authentication_error",
+    "forbidden": "permission_error",
+    "model_not_allowed": "permission_error",
+    "not_found": "not_found_error",
+    "model_not_found": "not_found_error",
+    "unsupported_parameter": "invalid_request_error",
+    "invalid_value": "invalid_request_error",
+    "bad_request": "invalid_request_error",
+    "method_not_allowed": "invalid_request_error",
+    "payload_too_large": "invalid_request_error",
+    "unsupported_media_type": "invalid_request_error",
+    "validation_error": "invalid_request_error",
+    "unsupported_capability": "invalid_request_error",
+    "rate_limited": "rate_limit_error",
+    "quota_exceeded": "rate_limit_error",
+    "guest_daily_limit_reached": "rate_limit_error",
+    "user_daily_limit_reached": "rate_limit_error",
+    "ip_daily_limit_reached": "rate_limit_error",
+    "internal_error": "api_error",
+    "ai_provider_error": "api_error",
+    "provider_error": "api_error",
+    "provider_unavailable": "api_error",
+    "database_unavailable": "api_error",
+    "ai_provider_timeout": "api_error",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +150,34 @@ def is_openai_path(path: str) -> bool:
     return path == OPENAI_PATH_PREFIX or path.startswith(f"{OPENAI_PATH_PREFIX}/")
 
 
+def is_anthropic_path(path: str) -> bool:
+    """`True` para as rotas da superfície Anthropic (`/v1/messages`)."""
+    return path == ANTHROPIC_PATH_PREFIX or path.startswith(f"{ANTHROPIC_PATH_PREFIX}/")
+
+
+def is_compat_path(path: str) -> bool:
+    """`True` para qualquer rota de compatibilidade com envelope próprio."""
+    return is_openai_path(path) or is_anthropic_path(path)
+
+
+def anthropic_error_type(code: str, status_code: int) -> str:
+    """Traduz o código interno para o `error.type` do envelope Anthropic."""
+    mapped = _ANTHROPIC_TYPES.get(code)
+    if mapped is not None:
+        return mapped
+    if status_code == 401:
+        return "authentication_error"
+    if status_code == 403:
+        return "permission_error"
+    if status_code == 404:
+        return "not_found_error"
+    if status_code == 429:
+        return "rate_limit_error"
+    if status_code >= 500:
+        return "api_error"
+    return "invalid_request_error"
+
+
 class CompatApiError(Exception):
     """Erro de uma camada de compatibilidade, traduzido no envelope externo."""
 
@@ -152,6 +210,12 @@ class CompatApiError(Exception):
             param=self.param,
         )
 
+    def as_anthropic_payload(self) -> dict[str, Any]:
+        return anthropic_error_payload(
+            self.message,
+            error_type=anthropic_error_type(self.code, self.status_code),
+        )
+
 
 def openai_error_payload(
     message: str,
@@ -168,6 +232,17 @@ def openai_error_payload(
             "param": param,
             "code": code,
         }
+    }
+
+
+def anthropic_error_payload(message: str, *, error_type: str) -> dict[str, Any]:
+    """Corpo `{"type":"error","error":{"type","message"}}` do contrato Anthropic."""
+    return {
+        "type": "error",
+        "error": {
+            "type": error_type,
+            "message": message,
+        },
     }
 
 
@@ -191,7 +266,10 @@ async def compat_error_handler(request: Request, exc: Exception) -> JSONResponse
         headers.setdefault("WWW-Authenticate", "Bearer")
     if exc.retry_after is not None:
         headers["Retry-After"] = str(exc.retry_after)
-    return _response(exc.as_payload(), status_code=exc.status_code, headers=headers)
+    payload = (
+        exc.as_anthropic_payload() if is_anthropic_path(request.url.path) else exc.as_payload()
+    )
+    return _response(payload, status_code=exc.status_code, headers=headers)
 
 
 def compat_validation_response(
@@ -202,12 +280,15 @@ def compat_validation_response(
     first = errors[0] if errors else None
     param = first.field if first is not None else None
     message = first.reason if first is not None else _MESSAGES["validation_error"]
-    payload = openai_error_payload(
-        message,
-        error_type="invalid_request_error",
-        code="validation_error",
-        param=param,
-    )
+    if is_anthropic_path(request.url.path):
+        payload = anthropic_error_payload(message, error_type="invalid_request_error")
+    else:
+        payload = openai_error_payload(
+            message,
+            error_type="invalid_request_error",
+            code="validation_error",
+            param=param,
+        )
     return _response(payload, status_code=422)
 
 
@@ -236,17 +317,28 @@ def compat_http_exception_response(
     shape = _STATUS_SHAPES.get(status_code, _ErrorShape(status_code, "api_error"))
     code = _STATUS_CODES.get(status_code, "internal_error" if status_code >= 500 else "bad_request")
     message = detail or _MESSAGES.get(code) or _MESSAGES["bad_request"]
-    payload = openai_error_payload(message, error_type=shape.type, code=code)
+    if is_anthropic_path(request.url.path):
+        payload = anthropic_error_payload(
+            message,
+            error_type=anthropic_error_type(code, status_code),
+        )
+    else:
+        payload = openai_error_payload(message, error_type=shape.type, code=code)
     return _response(payload, status_code=status_code)
 
 
 __all__ = [
+    "ANTHROPIC_PATH_PREFIX",
     "OPENAI_PATH_PREFIX",
     "CompatApiError",
+    "anthropic_error_payload",
+    "anthropic_error_type",
     "compat_error_handler",
     "compat_http_exception_response",
     "compat_validation_from_exception",
     "compat_validation_response",
+    "is_anthropic_path",
+    "is_compat_path",
     "is_openai_path",
     "openai_error_payload",
 ]

@@ -39,6 +39,8 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/api/v1/admin/users/{user_id}/reset-password": {"post"},
     "/v1/chat/completions": {"post"},
     "/v1/models": {"get"},
+    "/v1/messages": {"post"},
+    "/v1/messages/count_tokens": {"post"},
 }
 
 PUBLIC_OPERATIONS = {
@@ -78,6 +80,10 @@ DOCUMENTED_EXAMPLE_SCHEMAS = (
     "OpenAIChatRequest",
     "OpenAIChatResponse",
     "OpenAIModelList",
+    "AnthropicMessageRequest",
+    "AnthropicMessageResponse",
+    "AnthropicCountTokensRequest",
+    "AnthropicCountTokensResponse",
 )
 
 
@@ -156,6 +162,19 @@ def test_chat_documents_json_and_sse(client: TestClient) -> None:
     assert sse["schema"]["type"] == "string"
     assert "event: done" in sse["example"]
     assert "data:" in sse["example"]
+
+
+def test_messages_documents_json_and_sse(client: TestClient) -> None:
+    spec = _spec(client)
+    operation = spec["paths"]["/v1/messages"]["post"]
+    content = operation["responses"]["200"]["content"]
+
+    assert set(content) == {"application/json", "text/event-stream"}
+    assert content["application/json"]["schema"]["$ref"].endswith("/AnthropicMessageResponse")
+    sse = content["text/event-stream"]
+    assert sse["schema"]["type"] == "string"
+    assert "event: message_start" in sse["example"]
+    assert "event: message_stop" in sse["example"]
 
 
 def test_protected_operations_use_bearer_auth(client: TestClient) -> None:

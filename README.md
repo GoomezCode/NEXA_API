@@ -278,7 +278,7 @@ curl -sS -X POST http://localhost:8000/api/v1/admin/usage/reset \
 
 ## Compatibilidade com APIs externas (v2.0)
 
-> OpenAI disponível desde a F14; Anthropic/Claude Code e Ollama chegam nas F15–F16.
+> OpenAI e Anthropic/Claude Code disponíveis desde as F14–F15; Ollama chega na F16.
 
 OpenAI (requer `COMPAT_API_KEYS` configurado):
 
@@ -351,11 +351,10 @@ tests/
 F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração, F7 Hardening,
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade e F11 Catálogo de modelos.
 
-**Concluídas (v2.0):** F12 Gateway multi-provedor, F13 SQLite de usuários e
-F14 Compatibilidade OpenAI.
+**Concluídas (v2.0):** F12 Gateway multi-provedor, F13 SQLite de usuários,
+F14 Compatibilidade OpenAI e F15 Compatibilidade Anthropic/Claude Code.
 
-**Planejadas (v2.0):** F15 Compat Anthropic/Claude Code, F16 Compat Ollama e
-F17 Hardening/release `v2.0.0`.
+**Planejadas (v2.0):** F16 Compat Ollama e F17 Hardening/release `v2.0.0`.
 
 ## Release
 
