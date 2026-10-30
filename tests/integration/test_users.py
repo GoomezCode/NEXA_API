@@ -65,6 +65,16 @@ def client_for(settings: Settings, clock: FakeClock) -> Iterator[TestClient]:
         yield client
 
 
+def test_admin_login_is_case_insensitive(clock: FakeClock) -> None:
+    settings = make_settings(admin_username="Admin")
+
+    with client_for(settings, clock) as client:
+        response = _login(client, "  ADMIN ", "admin")
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+
+
 def test_full_test_user_lifecycle(client: TestClient) -> None:
     admin = _admin_token(client)
     created = _create(

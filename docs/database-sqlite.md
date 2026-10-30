@@ -506,20 +506,20 @@ migrar para um banco cliente-servidor (fora do escopo da v2.0).
 
 ## 13. Checklist de implementação
 
-- [ ] `DATABASE_URL` validado como `sqlite:///`.
-- [ ] Diretório/arquivo com permissões corretas.
-- [ ] PRAGMAs aplicados em todas as conexões.
-- [ ] WAL ativo e verificado.
-- [ ] Migrações `001`/`002` idempotentes e com checksum.
-- [ ] Triggers de proteção do admin criados.
-- [ ] Seed do admin idempotente e verificado.
-- [ ] Fallback de login do admin sem banco.
-- [ ] Repositório com SQL parametrizado e colunas explícitas.
-- [ ] Paginação por cursor.
-- [ ] Cache com TTL, teto e invalidação.
-- [ ] Criação/lote/reset/exclusão/limpeza de usuários de teste.
-- [ ] Backup antes de migração e restauração documentada.
-- [ ] `/admin/db/status` implementado.
-- [ ] Benchmarks dentro das metas.
-- [ ] Testes de admin inviolável (API + SQL direto).
-- [ ] Nenhum conteúdo de chat no banco.
+- [x] `DATABASE_URL` validado como `sqlite:///`.
+- [x] Diretório/arquivo com permissões corretas.
+- [x] PRAGMAs aplicados em todas as conexões.
+- [x] WAL ativo e verificado.
+- [x] Migrações `001`/`002` idempotentes e com checksum.
+- [x] Triggers de proteção do admin criados.
+- [x] Seed do admin idempotente e verificado.
+- [x] Fallback de login do admin sem banco.
+- [x] Repositório com SQL parametrizado e colunas explícitas.
+- [x] Paginação por cursor.
+- [x] Cache com TTL, teto e invalidação.
+- [x] Criação/lote/reset/exclusão/limpeza de usuários de teste.
+- [x] Backup antes de migração e restauração documentada.
+- [x] `/admin/db/status` implementado.
+- [x] Benchmarks dentro das metas.
+- [x] Testes de admin inviolável (API + SQL direto).
+- [x] Nenhum conteúdo de chat no banco.

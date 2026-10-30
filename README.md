@@ -5,7 +5,7 @@ Backend do chat de IA via web, em **Python/FastAPI**.
 - **Versão em produção:** `1.1.0` (SRS v1.2, sem banco, provedor Ollama).
 - **Versão em especificação:** `2.0.0` (SRS v2.0): gateway multi-provedor,
   compatibilidade OpenAI/Anthropic/Ollama e SQLite exclusivo para usuários.
-  A implementação está planejada nas fases F12–F17 e **ainda não foi aplicada**.
+  F12–F14 já implementadas; F15–F17 seguem planejadas.
 
 ## Documentação
 

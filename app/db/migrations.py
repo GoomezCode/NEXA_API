@@ -14,6 +14,7 @@ from app.core.clock import Clock
 from app.core.logging import get_logger
 from app.db.connection import Database, DatabaseError
 from app.db.models import ADMIN_ID, UserRow, to_db_time
+from app.db.repository import USER_COLUMNS
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 _MIGRATION_PATTERN = re.compile(r"^(?P<version>\d+)_(?P<name>[a-z0-9_]+)\.sql$")
@@ -231,7 +232,7 @@ async def ensure_admin(database: Database, settings: Settings, clock: Clock) -> 
 async def verify_admin(database: Database, settings: Settings) -> UserRow:
     """Confirma o admin após a migração; falha impede o boot (RF-USR-10)."""
     row = await database.fetch_one(
-        "SELECT * FROM users WHERE id = ?",
+        f"SELECT {USER_COLUMNS} FROM users WHERE id = ?",
         (ADMIN_ID,),
     )
     if row is None:

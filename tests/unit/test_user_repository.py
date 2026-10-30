@@ -107,6 +107,39 @@ async def test_migrations_are_idempotent_and_seed_the_admin(
     assert not admin.is_test
 
 
+async def test_migration_creates_backup_and_restore_preserves_data(
+    database: Database,
+    settings: Settings,
+    clock: FakeClock,
+    tmp_path: Path,
+) -> None:
+    async with database.write() as connection:
+        await connection.execute("CREATE TABLE marcador (id INTEGER PRIMARY KEY)")
+
+    migrations = tmp_path / "migrations"
+    migrations.mkdir()
+    (migrations / "003_extra.sql").write_text("CREATE TABLE extra (id INTEGER);", encoding="utf-8")
+
+    result = await run_migrations(
+        database,
+        settings.model_copy(update={"db_backup_before_migration": True}),
+        clock,
+        directory=migrations,
+    )
+
+    assert result.applied == (3,)
+    assert result.backup_path is not None
+    assert result.backup_path.exists()
+    assert result.backup_path.stat().st_mode & 0o777 == 0o600
+
+    await database.restore(result.backup_path)
+
+    assert await database.migration_version() == 2
+    marker = await database.fetch_one("SELECT name FROM sqlite_master WHERE name = 'marcador'")
+    assert marker is not None
+    assert await verify_admin(database, settings) is not None
+
+
 async def test_only_users_and_migrations_are_stored(database: Database) -> None:
     rows = await database.fetch_all(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"

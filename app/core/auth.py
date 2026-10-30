@@ -47,9 +47,9 @@ class AuthService:
 
     async def authenticate(self, username: str, password: str) -> AuthIdentity:
         """Valida as credenciais e devolve a identidade (RF-AUT-02 a 04, RF-USR-03)."""
-        expected_username = self._settings.admin_username
+        expected_username = self._settings.admin_username.strip().lower()
         username_matches = hmac.compare_digest(
-            username.encode("utf-8"), expected_username.encode("utf-8")
+            username.strip().lower().encode("utf-8"), expected_username.encode("utf-8")
         )
 
         if username_matches:
@@ -61,7 +61,7 @@ class AuthService:
                 self._logger.info("admin_login_failed")
                 raise ApiError("invalid_credentials")
             return AuthIdentity(
-                subject=self._settings.admin_username,
+                subject=expected_username,
                 role="admin",
                 user_id=ADMIN_ID,
             )
@@ -105,7 +105,7 @@ class AuthService:
         """Cria o token do admin e devolve `(token, expires_in)`."""
         return self.issue_token(
             AuthIdentity(
-                subject=self._settings.admin_username,
+                subject=self._settings.admin_username.strip().lower(),
                 role="admin",
                 user_id=ADMIN_ID,
             )

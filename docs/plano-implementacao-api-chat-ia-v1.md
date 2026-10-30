@@ -858,12 +858,12 @@ Regras:
 - [ ] CA-37 Ollama NDJSON + tags
 - [ ] CA-38 auth/cotas nas rotas de compatibilidade
 - [ ] CA-39 chaves nunca expostas
-- [ ] CA-40 login do admin sem SQLite
-- [ ] CA-41 admin inviolável (API + triggers)
-- [ ] CA-42 ciclo de vida de usuários de teste
-- [ ] CA-43 metas de performance do SQLite
-- [ ] CA-44 migrações preservam admin + backup
-- [ ] CA-45 somente usuários no banco
+- [x] CA-40 login do admin sem SQLite
+- [x] CA-41 admin inviolável (API + triggers)
+- [x] CA-42 ciclo de vida de usuários de teste
+- [x] CA-43 metas de performance do SQLite
+- [x] CA-44 migrações preservam admin + backup
+- [x] CA-45 somente usuários no banco
 - [ ] CA-46 documentação consistente
 - [ ] CA-47 contratos de compatibilidade verdes
 
