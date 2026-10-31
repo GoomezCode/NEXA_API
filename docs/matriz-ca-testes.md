@@ -1,5 +1,8 @@
 # Matriz CA → teste — Nexa API (v1.1.0 e v2.0 planejada)
 
+> [Índice da documentação](README.md) · [README operacional](../README.md).
+
+
 Rastreabilidade dos critérios de aceitação para os testes automatizados.
 
 - **v1.1.0:** SRS v1.2, CA-01..CA-25, implementados e verificados.

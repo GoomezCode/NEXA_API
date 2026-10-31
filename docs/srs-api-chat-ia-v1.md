@@ -1,5 +1,8 @@
 # Especificação de Requisitos de Software (SRS)
 
+> [Índice da documentação](README.md) · [README operacional](../README.md).
+
+
 ## API do Chat de IA via Web — Gateway multi-provedor e compatibilidade
 
 | Campo | Valor |

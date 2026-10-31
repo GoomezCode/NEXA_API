@@ -1,5 +1,8 @@
 # Checklist de release — Nexa API
 
+> [Índice da documentação](README.md) · [README operacional](../README.md).
+
+
 > Este documento preserva o release **v1.1.0** e acompanha o checklist da
 > **v2.0**. O código inclui F12–F16 e incrementos F18; a release não está fechada.
 

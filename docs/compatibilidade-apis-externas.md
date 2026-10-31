@@ -1,5 +1,8 @@
 # Compatibilidade com APIs externas — OpenAI, Anthropic e Ollama
 
+> [Índice da documentação](README.md) · [README operacional](../README.md).
+
+
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
 > **Estado:** OpenAI implementado na F14, Anthropic/Claude Code na F15 e Ollama
