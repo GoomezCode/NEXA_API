@@ -1,5 +1,8 @@
 # Aceitação manual com Ollama real — 28/10/2026
 
+> [Índice da documentação](README.md) · [README operacional](../README.md).
+
+
 > **Escopo histórico:** esta evidência refere-se exclusivamente à **v1.1.0**
 > (SRS v1.2, CA-01..CA-25). A rodada de aceitação da **v2.0** (gateway
 > multi-provedor, compatibilidade e SQLite) será registrada em documento próprio

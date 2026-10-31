@@ -1,5 +1,8 @@
 # Plano de Implementação — API do Chat de IA
 
+> [Índice da documentação](README.md) · [README operacional](../README.md).
+
+
 ## Backend Python/FastAPI conforme SRS v2.0
 
 | Campo | Valor |

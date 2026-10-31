@@ -12,10 +12,23 @@ Backend do chat de IA via web, em **Python/FastAPI**.
   permanece pendente de hardening, validação operacional e atualização final dos
   documentos de aceitação.
 
+## Navegação
+
+- [Documentação](#documentação)
+- [Requisitos](#requisitos)
+- [Configuração](#configuração)
+- [Execução](#execução)
+- [Endpoints](#endpoints-nativos-atuais)
+- [Docker](#docker)
+- [Qualidade](#qualidade)
+- [Estrutura](#estrutura)
+- [Estado da implementação e release](#estado-de-implementação-e-release)
+
 ## Documentação
 
 | Documento | Conteúdo |
 |---|---|
+| [`docs/README.md`](docs/README.md) | Índice da documentação, estado e orientação de leitura |
 | [`docs/srs-api-chat-ia-v1.md`](docs/srs-api-chat-ia-v1.md) | SRS v2.0 (especificação) |
 | [`docs/plano-implementacao-api-chat-ia-v1.md`](docs/plano-implementacao-api-chat-ia-v1.md) | Plano de implementação v2.0 |
 | [`docs/provedores-ia.md`](docs/provedores-ia.md) | Provedores, Model IDs, fallback e BYOK |
@@ -128,6 +141,10 @@ se omitida, a API usa `NVIDIA_BASE_URL`. URLs personalizadas passam por
 validação HTTPS e DNS público para usuários comuns.
 
 ## Execução
+
+A API nativa usa CORS configurado por `CORS_ORIGINS`. Em desenvolvimento, quando o frontend usa o proxy do Vite (`/api`), o navegador conversa com a mesma origem do frontend e o Vite encaminha a requisição à API. Se um cliente chamar a API diretamente de outra origem, adicione a origem exata à variável `CORS_ORIGINS`.
+
+O alvo `make run` escuta em `0.0.0.0:8000`, permitindo acesso na rede local. Libere essa porta apenas nas redes em que o serviço deve estar acessível; a autenticação da API continua obrigatória para rotas protegidas.
 
 Local:
 
@@ -386,7 +403,7 @@ tests/
 └── e2e/          # Claude Code/SSE (v2)
 ```
 
-## Estado de implementação
+## Estado de implementação e release
 
 **Concluídas (v1.x):** F0 Fundação, F1 Autenticação, F2 Provedores de IA,
 F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração, F7 Hardening,
