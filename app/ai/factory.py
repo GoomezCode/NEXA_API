@@ -24,6 +24,7 @@ PROVIDER_LABELS: dict[str, str] = {
     "ollama": "Ollama local",
     "ollama_cloud": "Ollama Cloud",
     "openai": "OpenAI",
+    "nvidia": "NVIDIA NIM",
     "anthropic": "Anthropic",
     "google": "Google Gemini",
     "openai_compatible": "OpenAI-compatible",
@@ -78,6 +79,18 @@ def _build_openai(settings: Settings) -> AIProvider:
     )
 
 
+def _build_nvidia(settings: Settings) -> AIProvider:
+    api_key = _require(settings.nvidia_api_key_value, "NVIDIA_API_KEY", "nvidia")
+    return OpenAIProvider(
+        settings,
+        name="nvidia",
+        base_url=settings.nvidia_base_url,
+        api_key=api_key,
+        default_model=settings.nvidia_default_model,
+        label="NVIDIA NIM",
+    )
+
+
 def _build_anthropic(settings: Settings) -> AIProvider:
     _require(settings.anthropic_api_key_value, "ANTHROPIC_API_KEY", "anthropic")
     return AnthropicProvider(settings)
@@ -123,6 +136,15 @@ def build_user_provider(
             base_url=base_url or settings.openai_base_url,
             label="OpenAI",
         )
+    if provider == "nvidia":
+        return OpenAIProvider(
+            settings,
+            name="nvidia",
+            api_key=api_key,
+            base_url=settings.nvidia_base_url,
+            default_model=default_model or settings.nvidia_default_model,
+            label="NVIDIA NIM",
+        )
     if provider == "anthropic":
         return AnthropicProvider(
             settings, api_key=api_key, base_url=base_url, default_model=default_model
@@ -155,6 +177,7 @@ _REGISTRY: dict[str, ProviderBuilder] = {
     "ollama": _build_ollama,
     "ollama_cloud": _build_ollama_cloud,
     "openai": _build_openai,
+    "nvidia": _build_nvidia,
     "anthropic": _build_anthropic,
     "google": _build_google,
     "openai_compatible": _build_openai_compatible,
@@ -217,6 +240,8 @@ def enabled_provider_names(settings: Settings) -> tuple[str, ...]:
         names.append("openai")
     if settings.anthropic_api_key_value:
         names.append("anthropic")
+    if settings.nvidia_api_key_value:
+        names.append("nvidia")
     if settings.google_api_key_value:
         names.append("google")
     if settings.openai_compat_base_url:

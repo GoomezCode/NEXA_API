@@ -6,7 +6,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-ProviderName = Literal["openai", "anthropic", "google", "ollama_cloud", "openai_compatible"]
+ProviderName = Literal[
+    "openai", "anthropic", "google", "ollama_cloud", "nvidia", "openai_compatible"
+]
 
 
 class ProviderKeyInput(BaseModel):

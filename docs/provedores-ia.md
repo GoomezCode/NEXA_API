@@ -28,6 +28,7 @@ cliente → NEXA API → ProviderRouter → adapter → provedor
 | Ollama local | `ollama` | `POST {OLLAMA_URL}/api/chat` (NDJSON) | opcional (`OLLAMA_API_KEY`) | `GET /api/tags` |
 | Ollama Cloud | `ollama_cloud` | `POST {OLLAMA_CLOUD_URL}/api/chat` (NDJSON) | `Authorization: Bearer` | `GET /api/tags` |
 | OpenAI | `openai` | `POST {OPENAI_BASE_URL}/chat/completions` (SSE) | `Authorization: Bearer` | `GET /models` |
+| NVIDIA NIM | `nvidia` | `POST {NVIDIA_BASE_URL}/chat/completions` (SSE) | `Authorization: Bearer` | `GET /models` |
 | Anthropic | `anthropic` | `POST {ANTHROPIC_BASE_URL}/v1/messages` (SSE) | `x-api-key` | `GET /v1/models` |
 | Google Gemini | `google` | `POST {GOOGLE_BASE_URL}/v1beta/models/{model}:generateContent` e `:streamGenerateContent?alt=sse` | `x-goog-api-key` | `GET /v1beta/models` |
 | OpenAI-compatible | `openai_compatible` | `POST {OPENAI_COMPAT_BASE_URL}/chat/completions` (SSE) | `Authorization: Bearer` | `GET /models` |
@@ -35,6 +36,22 @@ cliente → NEXA API → ProviderRouter → adapter → provedor
 
 O provedor `openai_compatible` cobre Groq, OpenRouter, DeepSeek, Azure OpenAI,
 vLLM, LM Studio, Together e qualquer serviço que implemente o contrato OpenAI.
+
+### NVIDIA NIM
+
+A API hospedada NVIDIA usa o protocolo OpenAI-compatible. Configure `NVIDIA_API_KEY`
+com uma chave do NVIDIA API Catalog; o endpoint padrão é
+`https://integrate.api.nvidia.com/v1`. `NVIDIA_BASE_URL` pode apontar para outra
+instância NIM compatível, e `NVIDIA_DEFAULT_MODEL` define o modelo padrão.
+O catálogo também lista os modelos liberados para a chave.
+
+Para habilitar a chave do servidor, defina `NVIDIA_API_KEY` e inclua `nvidia`
+em `AI_ENABLED_PROVIDERS` (ou deixe a lista vazia para autodetecção). Para usar
+NVIDIA como padrão, configure `AI_DEFAULT_MODEL=nvidia/nvidia/nemotron-3.5-super-120b-a12b`.
+
+Para BYOK, usuários podem salvar uma chave NVIDIA NIM no Monitor. O endpoint vem
+da configuração do servidor, sem aceitar URL fornecida pelo usuário. O campo de
+modelo é opcional e pode receber o ID publicado pelo catálogo NVIDIA.
 
 ## 3. Model ID, aliases e allowlist
 
@@ -50,6 +67,7 @@ Exemplos:
 ollama/llama3.1
 ollama_cloud/qwen3-coder:480b
 openai/gpt-4o-mini
+nvidia/nvidia/nemotron-3.5-super-120b-a12b
 anthropic/claude-sonnet-4-5
 google/gemini-2.5-flash
 openai_compatible/llama-3.3-70b-versatile

@@ -14,7 +14,9 @@ from app.core.errors import ApiError
 from app.db.connection import Database
 from app.db.models import to_db_time
 
-PROVIDERS = frozenset({"openai", "anthropic", "google", "ollama_cloud", "openai_compatible"})
+PROVIDERS = frozenset(
+    {"openai", "anthropic", "google", "ollama_cloud", "nvidia", "openai_compatible"}
+)
 
 
 @dataclass(frozen=True, slots=True)

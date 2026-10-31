@@ -3092,6 +3092,7 @@
               "anthropic",
               "google",
               "ollama_cloud",
+              "nvidia",
               "openai_compatible"
             ],
             "title": "Provider",
@@ -3126,6 +3127,7 @@
               "anthropic",
               "google",
               "ollama_cloud",
+              "nvidia",
               "openai_compatible"
             ],
             "title": "Provider",

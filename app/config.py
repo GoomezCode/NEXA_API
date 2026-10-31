@@ -46,6 +46,7 @@ KNOWN_PROVIDERS = frozenset(
         "ollama",
         "ollama_cloud",
         "openai",
+        "nvidia",
         "anthropic",
         "google",
         "openai_compatible",
@@ -131,6 +132,11 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_default_model: str = "gpt-4o-mini"
     openai_org_id: str | None = None
+
+    # --- NVIDIA NIM ---------------------------------------------------------
+    nvidia_api_key: SecretStr | None = None
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_default_model: str = "nvidia/nemotron-3.5-super-120b-a12b"
 
     # --- Anthropic ----------------------------------------------------------
     anthropic_api_key: SecretStr | None = None
@@ -419,6 +425,7 @@ class Settings(BaseSettings):
             "OLLAMA_URL": self.ollama_url,
             "OLLAMA_CLOUD_URL": self.ollama_cloud_url,
             "OPENAI_BASE_URL": self.openai_base_url,
+            "NVIDIA_BASE_URL": self.nvidia_base_url,
             "ANTHROPIC_BASE_URL": self.anthropic_base_url,
             "GOOGLE_BASE_URL": self.google_base_url,
         }
@@ -473,6 +480,10 @@ class Settings(BaseSettings):
     @property
     def openai_api_key_value(self) -> str | None:
         return self._secret(self.openai_api_key)
+
+    @property
+    def nvidia_api_key_value(self) -> str | None:
+        return self._secret(self.nvidia_api_key)
 
     @property
     def anthropic_api_key_value(self) -> str | None:

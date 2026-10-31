@@ -11,6 +11,7 @@ from app.config import Settings
 from app.core.clock import Clock
 from app.core.errors import ApiError
 from app.core.security import Role, decode_access_token
+from app.db.models import ADMIN_ID
 
 _bearer_scheme = HTTPBearer(
     auto_error=False,
@@ -68,7 +69,11 @@ async def get_current_user(
             rate_per_min=row.rate_per_min,
         )
 
-    return CurrentUser(subject=payload.subject, role=payload.role)
+    return CurrentUser(
+        subject=payload.subject,
+        role=payload.role,
+        user_id=ADMIN_ID if payload.role == "admin" else None,
+    )
 
 
 def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
