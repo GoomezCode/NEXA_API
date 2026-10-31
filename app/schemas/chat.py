@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from unicodedata import category
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -56,8 +57,41 @@ class ToolCallOut(BaseModel):
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
+class PersonalizationMemory(BaseModel):
+    """Memória do usuário tratada como dado contextual."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=160)
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class PersonalizationInput(BaseModel):
+    """Campos controlados pelo servidor para personalizar o contexto."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "display_name": "Marina",
+                "memories": [{"title": "Preferências", "content": "Prefere respostas diretas."}],
+            }
+        },
+    )
+
+    display_name: str | None = Field(default=None, max_length=60)
+    memories: list[PersonalizationMemory] = Field(default_factory=list, max_length=50)
+
+    @field_validator("display_name")
+    @classmethod
+    def _safe_display_name(cls, value: str | None) -> str | None:
+        if value is not None and any(category(char) == "Cc" for char in value):
+            raise ValueError("nome não pode conter quebras de linha ou caracteres de controle")
+        return value.strip() if value else value
+
+
 class ChatRequest(BaseModel):
-    """Corpo de `POST /chat` (sem `system_prompt` nem parâmetros de geração)."""
+    """Corpo de `POST /chat` (sem system_prompt nem parâmetros de geração)."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -73,6 +107,7 @@ class ChatRequest(BaseModel):
     )
 
     messages: list[ChatMessageInput] = Field(min_length=1)
+    personalization: PersonalizationInput | None = Field(default=None)
     stream: bool = True
     model: str | None = Field(
         default=None,
@@ -159,6 +194,7 @@ class ChatResponse(BaseModel):
     provider: str
     model: str
     model_id: str
+    key_source: Literal["server", "user"] = "server"
     finish_reason: FinishReason
     provider_usage: ProviderUsage
     usage: UsageInfo
@@ -181,6 +217,7 @@ class StreamDone(BaseModel):
     status: Literal["complete"] = "complete"
     finish_reason: FinishReason
     model_id: str | None = None
+    key_source: Literal["server", "user"] = "server"
     provider_usage: ProviderUsage | None = None
     usage: UsageInfo
 

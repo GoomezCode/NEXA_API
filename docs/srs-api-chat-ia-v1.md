@@ -651,7 +651,7 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 
 | ID | Regra |
 |---|---|
-| **RN-01** | Existe **um único usuário permanente**: o administrador, definido na configuração e espelhado no SQLite. Não há cadastro público. |
+| **RN-01** | Existe um único administrador protegido, definido na configuração e espelhado no SQLite. Contas `user` podem ser criadas por administradores; cadastro público só é permitido quando `ALLOW_SELF_REGISTRATION=true` (desligado por padrão). |
 | **RN-02** | Qualquer visitante pode usar o chat como **guest**, sem cadastro, dentro dos limites de uso. |
 | **RN-03** | O administrador não tem cota diária, mas está sujeito ao limite técnico por minuto e aos limites de tamanho do seu papel. |
 | **RN-04** | Alterar o administrador (usuário ou senha) exige alterar a configuração e reiniciar a API. Tokens já emitidos continuam válidos até expirar; para invalidá-los de imediato, troca-se o `JWT_SECRET`. |

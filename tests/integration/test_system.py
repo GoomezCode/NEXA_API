@@ -201,7 +201,9 @@ def test_post_without_body_is_not_rejected(client: TestClient) -> None:
 
 
 def test_production_adds_hsts() -> None:
-    settings = make_settings(environment="production", jwt_secret="a" * 48)
+    settings = make_settings(
+        environment="production", jwt_secret="a" * 48, key_encryption_secret="k" * 48
+    )
     with TestClient(create_app(settings)) as client:
         response = client.get("/health")
 

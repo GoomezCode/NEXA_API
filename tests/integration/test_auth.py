@@ -57,6 +57,70 @@ def test_login_success_returns_admin_token(
     assert payload.role == "admin"
 
 
+def test_public_registration_creates_and_authenticates_account(clock: FakeClock) -> None:
+    settings = make_settings(allow_self_registration=True)
+    with client_for(settings, clock) as client:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": "marina",
+                "email": "marina@example.com",
+                "password": "senha-forte-123",
+            },
+        )
+        login_response = client.post(
+            "/api/v1/auth/login", json={"username": "marina", "password": "senha-forte-123"}
+        )
+    assert response.status_code == 201
+    assert response.json()["role"] == "user"
+    assert response.headers["cache-control"] == "no-store"
+    assert login_response.status_code == 200
+
+
+def test_public_registration_is_disabled_by_default(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"username": "marina", "password": "senha-forte-123"},
+    )
+    assert response.status_code == 403
+    assert response.json()["code"] == "registration_disabled"
+
+
+def test_public_registration_conflict_returns_409(clock: FakeClock) -> None:
+    settings = make_settings(allow_self_registration=True)
+    payload = {"username": "marina", "email": "marina@example.com", "password": "senha-forte-123"}
+    with client_for(settings, clock) as client:
+        assert client.post("/api/v1/auth/register", json=payload).status_code == 201
+        response = client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 409
+    assert response.json()["code"] == "username_conflict"
+
+
+def test_public_registration_is_rate_limited_by_ip(clock: FakeClock) -> None:
+    settings = make_settings(
+        allow_self_registration=True, registration_max_attempts_per_ip_per_hour=2
+    )
+    with client_for(settings, clock) as client:
+        assert (
+            client.post(
+                "/api/v1/auth/register", json={"username": "marina1", "password": "senha-forte-123"}
+            ).status_code
+            == 201
+        )
+        assert (
+            client.post(
+                "/api/v1/auth/register", json={"username": "marina2", "password": "senha-forte-123"}
+            ).status_code
+            == 201
+        )
+        response = client.post(
+            "/api/v1/auth/register", json={"username": "marina3", "password": "senha-forte-123"}
+        )
+    assert response.status_code == 429
+    assert response.json()["code"] == "rate_limited"
+    assert response.headers["retry-after"] == "3600"
+
+
 def test_login_rejects_wrong_password(client: TestClient) -> None:
     response = login(client, password="errada")
     assert response.status_code == 401

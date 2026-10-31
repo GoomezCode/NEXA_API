@@ -860,7 +860,7 @@
       },
       "ChatRequest": {
         "additionalProperties": false,
-        "description": "Corpo de `POST /chat` (sem `system_prompt` nem parâmetros de geração).",
+        "description": "Corpo de `POST /chat` (sem system_prompt nem parâmetros de geração).",
         "example": {
           "messages": [
             {
@@ -895,6 +895,16 @@
             ],
             "description": "Model ID `provider/model` ou alias. Omitido, usa `AI_DEFAULT_MODEL`.",
             "title": "Model"
+          },
+          "personalization": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonalizationInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stream": {
             "default": true,
@@ -974,6 +984,15 @@
               "tool_use"
             ],
             "title": "Finish Reason",
+            "type": "string"
+          },
+          "key_source": {
+            "default": "server",
+            "enum": [
+              "server",
+              "user"
+            ],
+            "title": "Key Source",
             "type": "string"
           },
           "message": {
@@ -1520,6 +1539,15 @@
         "additionalProperties": false,
         "description": "Índice plano para clientes simples.",
         "properties": {
+          "key_source": {
+            "default": "server",
+            "enum": [
+              "server",
+              "user"
+            ],
+            "title": "Key Source",
+            "type": "string"
+          },
           "model_id": {
             "title": "Model Id",
             "type": "string"
@@ -2913,6 +2941,209 @@
         "title": "OpenAIUsage",
         "type": "object"
       },
+      "PersonalizationInput": {
+        "additionalProperties": false,
+        "description": "Campos controlados pelo servidor para personalizar o contexto.",
+        "example": {
+          "display_name": "Marina",
+          "memories": [
+            {
+              "content": "Prefere respostas diretas.",
+              "title": "Preferências"
+            }
+          ]
+        },
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "memories": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalizationMemory"
+            },
+            "maxItems": 50,
+            "title": "Memories",
+            "type": "array"
+          }
+        },
+        "title": "PersonalizationInput",
+        "type": "object"
+      },
+      "PersonalizationMemory": {
+        "additionalProperties": false,
+        "description": "Memória do usuário tratada como dado contextual.",
+        "properties": {
+          "content": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "PersonalizationMemory",
+        "type": "object"
+      },
+      "ProviderKeyInput": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Api Key",
+            "type": "string"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          }
+        },
+        "required": [
+          "api_key"
+        ],
+        "title": "ProviderKeyInput",
+        "type": "object"
+      },
+      "ProviderKeySummary": {
+        "properties": {
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "key_last4": {
+            "title": "Key Last4",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "provider": {
+            "enum": [
+              "openai",
+              "anthropic",
+              "google",
+              "ollama_cloud",
+              "openai_compatible"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "key_last4",
+          "base_url",
+          "default_model",
+          "created_at",
+          "updated_at",
+          "last_used_at"
+        ],
+        "title": "ProviderKeySummary",
+        "type": "object"
+      },
+      "ProviderKeyTestResult": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "openai",
+              "anthropic",
+              "google",
+              "ollama_cloud",
+              "openai_compatible"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "valid",
+          "message"
+        ],
+        "title": "ProviderKeyTestResult",
+        "type": "object"
+      },
       "ProviderModels": {
         "additionalProperties": false,
         "description": "Catálogo de um provedor habilitado.",
@@ -2925,6 +3156,15 @@
           "default_model": {
             "description": "Modelo padrão do provedor.",
             "title": "Default Model",
+            "type": "string"
+          },
+          "key_source": {
+            "default": "server",
+            "enum": [
+              "server",
+              "user"
+            ],
+            "title": "Key Source",
             "type": "string"
           },
           "models": {
@@ -3139,6 +3379,47 @@
           "request_id"
         ],
         "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "additionalProperties": false,
+        "description": "Cadastro público opcional.",
+        "example": {
+          "email": "marina@example.com",
+          "password": "senha-segura",
+          "username": "marina"
+        },
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "RegisterRequest",
         "type": "object"
       },
       "ResetPasswordRequest": {
@@ -5046,6 +5327,57 @@
         ]
       }
     },
+    "/api/v1/auth/register": {
+      "post": {
+        "description": "Valida o cadastro, cria a conta e devolve uma sessão de usuário.",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Cadastro desabilitado."
+          },
+          "409": {
+            "description": "Usuário ou e-mail já existe."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Limite de cadastro excedido."
+          }
+        },
+        "summary": "Cria uma conta de usuário",
+        "tags": [
+          "Autenticação"
+        ]
+      }
+    },
     "/api/v1/chat": {
       "post": {
         "description": "Recebe o contexto completo e devolve a resposta do modelo. Com `stream = false` a resposta é um JSON completo; com `stream = true` (padrão) a resposta é um fluxo SSE com `data:` por trecho, evento `done` no fim e evento `error` em falhas após o início (3.7.3).",
@@ -5101,6 +5433,182 @@
         "summary": "Envia mensagens ao provedor de IA",
         "tags": [
           "Chat"
+        ]
+      }
+    },
+    "/api/v1/me/providers": {
+      "get": {
+        "description": "Devolve metadados e os quatro últimos caracteres das chaves.",
+        "operationId": "list_provider_keys_api_v1_me_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderKeySummary"
+                  },
+                  "title": "Response List Provider Keys Api V1 Me Providers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lista as chaves configuradas",
+        "tags": [
+          "Chaves de provedores"
+        ]
+      }
+    },
+    "/api/v1/me/providers/{provider}": {
+      "delete": {
+        "description": "Remove a chave associada ao provedor.",
+        "operationId": "delete_provider_key_api_v1_me_providers__provider__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove uma chave de provedor",
+        "tags": [
+          "Chaves de provedores"
+        ]
+      },
+      "put": {
+        "description": "Criptografa e armazena uma chave, sem devolvê-la em texto puro.",
+        "operationId": "save_provider_key_api_v1_me_providers__provider__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderKeyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderKeySummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Salva uma chave de provedor",
+        "tags": [
+          "Chaves de provedores"
+        ]
+      }
+    },
+    "/api/v1/me/providers/{provider}/test": {
+      "post": {
+        "description": "Valida a chave salva com uma consulta de saúde ao provedor.",
+        "operationId": "test_provider_key_api_v1_me_providers__provider__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderKeyTestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Testa uma chave salva",
+        "tags": [
+          "Chaves de provedores"
         ]
       }
     },

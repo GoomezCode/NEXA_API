@@ -8,9 +8,13 @@ from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.ai.base import ProviderError, provider_error_code
 from app.ai.capabilities import capability_names, merge_capabilities
+from app.ai.factory import build_user_provider
 from app.ai.router import ProviderRouter, canonical_model_id
-from app.api.deps import get_current_user
+from app.api.deps import CurrentUser, get_current_user
+from app.config import Settings
 from app.core.errors import ApiError, request_id_of
+from app.core.provider_keys import ProviderKeyStore
+from app.db.connection import Database
 from app.schemas.models import (
     ModelEntry,
     ModelIndexEntry,
@@ -44,6 +48,7 @@ router = APIRouter(
 )
 async def list_models(
     request: Request,
+    user: CurrentUser = Depends(get_current_user),
     refresh: bool = Query(
         default=False,
         description="Ignora o cache curto e consulta os provedores novamente.",
@@ -88,6 +93,7 @@ async def list_models(
                     provider=entry.provider,
                     name=model.name,
                     selectable=selectable,
+                    key_source="server",
                 )
             )
 
@@ -98,8 +104,83 @@ async def list_models(
                 available=entry.available,
                 default_model=entry.default_model,
                 models=models,
+                key_source="server",
             )
         )
+
+    if user.role in {"user", "admin"} and user.user_id is not None:
+        settings = cast(Settings, request.app.state.settings)
+        try:
+            key_store = ProviderKeyStore(
+                cast(Database, request.app.state.database), settings, request.app.state.clock
+            )
+            user_keys = await key_store.list(user.user_id)
+        except ApiError:
+            user_keys = []
+        for summary in user_keys:
+            key = await key_store.get(user.user_id, summary.provider)
+            if key is None:
+                continue
+            adapter = build_user_provider(
+                settings,
+                provider=summary.provider,
+                api_key=key.api_key,
+                base_url=key.base_url,
+                default_model=key.default_model,
+            )
+            try:
+                available_models = await adapter.list_models(request_id=request_id_of(request))
+            except ProviderError:
+                providers.append(
+                    ProviderModels(
+                        provider=summary.provider,
+                        name=adapter.label,
+                        available=False,
+                        default_model=key.default_model or adapter.model,
+                        models=[],
+                        key_source="user",
+                    )
+                )
+                continue
+            models = []
+            for model in available_models:
+                model_id = canonical_model_id(summary.provider, model.name)
+                capabilities = merge_capabilities(adapter.capabilities, model)
+                selectable = ai_router.is_selectable(summary.provider, model.name)
+                models.append(
+                    ModelEntry(
+                        model_id=model_id,
+                        name=model.name,
+                        size_bytes=model.size_bytes,
+                        modified_at=model.modified_at,
+                        family=model.family,
+                        parameter_size=model.parameter_size,
+                        quantization_level=model.quantization_level,
+                        capabilities=capability_names(capabilities),
+                        context_window=capabilities.context_window,
+                        selectable=selectable,
+                    )
+                )
+                index.append(
+                    ModelIndexEntry(
+                        model_id=model_id,
+                        provider=summary.provider,
+                        name=model.name,
+                        selectable=selectable,
+                        key_source="user",
+                    )
+                )
+            providers = [item for item in providers if item.provider != summary.provider]
+            providers.append(
+                ProviderModels(
+                    provider=summary.provider,
+                    name=adapter.label,
+                    available=True,
+                    default_model=key.default_model or adapter.model,
+                    models=models,
+                    key_source="user",
+                )
+            )
 
     return ModelsResponse(
         default_model=snapshot.default_model_id,

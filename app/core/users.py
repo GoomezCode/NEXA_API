@@ -189,6 +189,22 @@ class UserService:
         self._logger.info("test_user_created", username=row.username)
         return row, password
 
+    async def register_user(self, username: str, email: str | None, password: str) -> UserRow:
+        """Cria uma conta pública comum, sem expiração nem privilégios de teste."""
+        password_hash = await asyncio.to_thread(hash_password, password)
+        row = self._build_row(
+            username=username,
+            password_hash=password_hash,
+            email=email,
+            daily_message_limit=self._settings.registration_daily_messages,
+            rate_per_min=self._settings.registration_rate_per_min,
+            expires_at=None,
+            is_test=False,
+        )
+        row = await self._create(row)
+        self._logger.info("self_registration_completed", user_id=row.id)
+        return row
+
     async def create_bulk(self, payload: BulkCreateRequest) -> list[tuple[UserRow, str]]:
         self._require_test_users()
         if payload.count > self._settings.test_user_max_bulk:
@@ -327,11 +343,12 @@ class UserService:
         rate_per_min: int | None,
         expires_at: datetime | None,
         created_at: datetime | None = None,
+        is_test: bool = True,
     ) -> UserRow:
         now = created_at or self._clock.now()
         normalized = username.strip().lower()
         expiration = _as_utc(expires_at)
-        if expiration is None and self._settings.test_user_ttl_hours > 0:
+        if is_test and expiration is None and self._settings.test_user_ttl_hours > 0:
             expiration = now + timedelta(hours=self._settings.test_user_ttl_hours)
         return UserRow(
             id=str(uuid4()),
@@ -340,7 +357,7 @@ class UserService:
             email=email.strip().lower() if email else None,
             password_hash=password_hash,
             role="user",
-            is_test=True,
+            is_test=is_test,
             is_protected=False,
             is_active=True,
             daily_message_limit=(

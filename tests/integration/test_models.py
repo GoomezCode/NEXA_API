@@ -63,6 +63,7 @@ def test_guest_lists_installed_models(client: TestClient, provider: FakeProvider
         "provider": "fake",
         "name": "fake-model:latest",
         "selectable": True,
+        "key_source": "server",
     }
     assert body["models"][1]["selectable"] is True
     assert provider.models_calls == [response.headers["x-request-id"]]
@@ -196,5 +197,6 @@ def test_model_without_metadata_serializes_nulls(
             "provider": "fake",
             "name": "sem-metadados:latest",
             "selectable": True,
+            "key_source": "server",
         }
     ]

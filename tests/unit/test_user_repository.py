@@ -99,7 +99,7 @@ async def test_migrations_are_idempotent_and_seed_the_admin(
     admin = await verify_admin(database, settings)
 
     assert second.applied == ()
-    assert second.current_version == 2
+    assert second.current_version == 3
     assert admin.id == ADMIN_ID
     assert admin.username == "admin"
     assert admin.role == "admin"
@@ -118,7 +118,7 @@ async def test_migration_creates_backup_and_restore_preserves_data(
 
     migrations = tmp_path / "migrations"
     migrations.mkdir()
-    (migrations / "003_extra.sql").write_text("CREATE TABLE extra (id INTEGER);", encoding="utf-8")
+    (migrations / "004_extra.sql").write_text("CREATE TABLE extra (id INTEGER);", encoding="utf-8")
 
     result = await run_migrations(
         database,
@@ -127,14 +127,14 @@ async def test_migration_creates_backup_and_restore_preserves_data(
         directory=migrations,
     )
 
-    assert result.applied == (3,)
+    assert result.applied == (4,)
     assert result.backup_path is not None
     assert result.backup_path.exists()
     assert result.backup_path.stat().st_mode & 0o777 == 0o600
 
     await database.restore(result.backup_path)
 
-    assert await database.migration_version() == 2
+    assert await database.migration_version() == 3
     marker = await database.fetch_one("SELECT name FROM sqlite_master WHERE name = 'marcador'")
     assert marker is not None
     assert await verify_admin(database, settings) is not None
@@ -145,7 +145,9 @@ async def test_only_users_and_migrations_are_stored(database: Database) -> None:
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
     )
 
-    assert {str(row["name"]) for row in rows} == {"users", "schema_migrations"}
+    assert {str(row["name"]) for row in rows} == {
+        "users", "schema_migrations", "user_provider_keys"
+    }
 
 
 async def test_admin_cannot_be_deleted_or_demoted_by_sql(database: Database) -> None:

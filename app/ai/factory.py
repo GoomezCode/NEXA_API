@@ -106,6 +106,51 @@ def _build_fake(settings: Settings) -> AIProvider:
     return FakeProvider()
 
 
+def build_user_provider(
+    settings: Settings,
+    *,
+    provider: str,
+    api_key: str,
+    base_url: str | None = None,
+    default_model: str | None = None,
+) -> AIProvider:
+    """Constrói um adapter com credenciais fornecidas para uma única requisição."""
+    if provider == "openai":
+        return OpenAIProvider(
+            settings,
+            api_key=api_key,
+            default_model=default_model,
+            base_url=base_url or settings.openai_base_url,
+            label="OpenAI",
+        )
+    if provider == "anthropic":
+        return AnthropicProvider(
+            settings, api_key=api_key, base_url=base_url, default_model=default_model
+        )
+    if provider == "google":
+        return GoogleProvider(
+            settings, api_key=api_key, base_url=base_url, default_model=default_model
+        )
+    if provider == "ollama_cloud":
+        return OllamaProvider(
+            settings,
+            name=provider,
+            api_key=api_key,
+            base_url=base_url or settings.ollama_cloud_url,
+            default_model=default_model or settings.ollama_cloud_default_model,
+        )
+    if provider == "openai_compatible":
+        if not base_url:
+            raise ProviderConfigurationError("OpenAI-compatible exige base_url.")
+        return OpenAICompatibleProvider(
+            settings,
+            api_key=api_key,
+            base_url=base_url,
+            default_model=default_model or "",
+        )
+    raise ProviderConfigurationError(f"Provedor BYOK não suportado: {provider}")
+
+
 _REGISTRY: dict[str, ProviderBuilder] = {
     "ollama": _build_ollama,
     "ollama_cloud": _build_ollama_cloud,
