@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 ResetScope = Literal["gid", "ip", "uid"]
 
-
 def _iso_utc(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -161,8 +160,96 @@ __all__ = [
     "GuestEntry",
     "GuestsResponse",
     "IpUsageEntry",
+    "ProviderConfig",
+    "ProviderCreate",
+    "ProviderListResponse",
+    "ProviderUpdate",
     "ProviderStatus",
+    "ProviderType",
     "ResetRequest",
     "ResetScope",
     "StatsResponse",
 ]
+
+
+# --- Provedores de IA (RF-ADM-06 a 10) ---
+
+ProviderType = Literal["ollama", "ollama_cloud", "openai", "anthropic", "google", "openai_compatible", "fake"]
+
+
+class ProviderConfig(BaseModel):
+    """Configuração de um provedor de IA (sem segredos sensíveis expostos).
+
+    RF-ADM-06: Define o que a UI pode configurar por provedor.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: ProviderType = Field(description="Nome do provedor no registry.")
+    default_model: str = Field(description="Modelo padrão após provider/, ex: llama3.1")
+    available: bool = Field(description="Indica se o provedor está disponível (útil após health check).")
+    capabilities: list[str] = Field(
+        default_factory=list,
+        description="Capacidades suportadas: chat, stream, tools, vision, json_mode.",
+    )
+    error: str | None = Field(
+        default=None, description="Código de erro quando available=False."
+    )
+
+
+class ProviderCreate(BaseModel):
+    """Payload para cadastrar um novo provedor (RF-ADM-07).
+
+    O provedor será registrado via registry.register_provider() e
+    ficará disponível globalmente após o próximo boot/restart.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: ProviderType = Field(description="Tipo do provedor a ser cadastrado.")
+    default_model: str = Field(description="Modelo padrão após provider/, ex: llama3.1")
+    capabilities: list[str] = Field(
+        default_factory=list,
+        description="Capacidades suportadas: chat, stream, tools, vision, json_mode.",
+    )
+    base_url: str | None = Field(
+        default=None,
+        description="URL base do serviço (ex: http://localhost:11434).",
+    )
+    api_key_value: str | None = Field(
+        default=None,
+        description="Chave de API do provedor (não armazenada em texto puro).",
+    )
+
+
+class ProviderUpdate(BaseModel):
+    """Payload para atualizar configuração de um provedor existente (RF-ADM-08)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    default_model: str | None = Field(
+        default=None,
+        description="Novo modelo padrão após provider/, ex: llama3.1.",
+    )
+    capabilities: list[str] | None = Field(
+        default=None,
+        description="Novas capacidades suportadas.",
+    )
+    available: bool | None = Field(
+        default=None,
+        description="Marcar provedor como disponível/indisponível (apenas para health check).",
+    )
+    error: str | None = Field(
+        default=None,
+        description="Novo código de erro quando available=False.",
+    )
+
+
+class ProviderListResponse(BaseModel):
+    """Resposta de lista de provedores cadastrados (RF-ADM-09)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    providers: list[ProviderConfig] = Field(
+        description="Catálogo de provedores configurados no registry."
+    )

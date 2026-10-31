@@ -7,6 +7,13 @@ from typing import cast
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
+from app.ai.factory import (
+    available_providers,
+    build_provider,
+    build_registry,
+    enabled_provider_names,
+    register_provider,
+)
 from app.ai.router import ProviderRouter
 from app.api.deps import require_admin
 from app.core.errors import ApiError
@@ -17,13 +24,18 @@ from app.core.users import UserService
 from app.db.connection import Database
 from app.schemas.admin import (
     AiStatusResponse,
-    GuestEntry,
-    GuestsResponse,
-    IpUsageEntry,
+    ProviderConfig,
+    ProviderCreate,
+    ProviderListResponse,
+    ProviderUpdate,
     ProviderStatus,
+    ProviderType,
     ResetRequest,
     StatsResponse,
 )
+from app.schemas.admin import GuestsResponse
+from app.schemas.users import DbStatusResponse
+
 from app.schemas.users import DbStatusResponse
 
 router = APIRouter(
@@ -113,6 +125,195 @@ async def ai_status(request: Request) -> AiStatusResponse:
             for item in health
         ]
     )
+
+
+@router.get(
+    "/providers",
+    response_model=ProviderListResponse,
+    summary="Lista todos os provedores cadastrados",
+    description=(
+        "Retorna o catálogo de provedores de IA configurados no registry. "
+        "Inclui provedores padrão (ollama, openai, etc.) e quaisquer provedores "
+        "adicionados via `POST /admin/providers`."
+    ),
+    responses={status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."}},
+)
+async def list_providers(request: Request) -> ProviderListResponse:
+    settings: Settings = request.app.state.settings
+    providers = enabled_provider_names(settings)
+    configs: list[ProviderConfig] = []
+    for name in providers:
+        try:
+            provider = build_provider(settings, name)
+            caps = provider.capabilities
+            configs.append(
+                ProviderConfig(
+                    provider=name,
+                    default_model=provider.model,
+                    available=True,
+                    capabilities=[
+                        c
+                        for c in ("chat", "stream", "tools", "vision", "json_mode")
+                        if getattr(caps, c, False)
+                    ],
+                )
+            )
+        except Exception as e:
+            configs.append(
+                ProviderConfig(
+                    provider=name,
+                    default_model="",
+                    available=False,
+                    error=str(e),
+                )
+            )
+    return ProviderListResponse(providers=configs)
+
+
+@router.post(
+    "/providers",
+    response_model=ProviderConfig,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastra um novo provedor de IA",
+    description=(
+        "Registra um novo provedor no registry global. O provedor ficará "
+        "disponível após o próximo reinício da API. "
+        "Cuidado: chaves de API nunca são armazenadas em texto puro; apenas "
+        "o valor descriptografado é passado ao builder no tempo de execução."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"description": "Provedor inválido ou configuração incompleta."},
+    },
+)
+async def create_provider(payload: ProviderCreate, request: Request) -> ProviderConfig:
+    settings: Settings = request.app.state.settings
+    try:
+        register_provider(
+            name=payload.provider,
+            builder=lambda s=settings: build_provider(s, payload.provider),
+            replace=True,
+        )
+        provider = build_provider(settings, payload.provider)
+        caps = provider.capabilities
+        return ProviderConfig(
+            provider=payload.provider,
+            default_model=provider.model,
+            available=True,
+            capabilities=[
+                c
+                for c in ("chat", "stream", "tools", "vision", "json_mode")
+                if getattr(caps, c, False)
+            ],
+        )
+    except ProviderConfigurationError as e:
+        raise status.HTTP_422_UNPROCESSABLE_ENTITY from e
+    except Exception as e:
+        raise status.HTTP_422_UNPROCESSABLE_ENTITY from e
+
+
+@router.patch(
+    "/providers/{provider_name}",
+    response_model=ProviderConfig,
+    summary="Atualiza configuração de um provedor existente",
+    description=(
+        "Atualiza o modelo padrão e/ou capacidades de um provedor já cadastrado. "
+        "Apenas campos fornecidos são alterados; outros mantêm os valores atuais."
+    ),
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Provedor não encontrado."},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"description": "Configuração inválida."},
+    },
+)
+async def update_provider(
+    provider_name: str,
+    payload: ProviderUpdate,
+    request: Request,
+) -> ProviderConfig:
+    settings: Settings = request.app.state.settings
+    if payload.default_model is not None or payload.capabilities is not None or payload.available is not None:
+        try:
+            register_provider(
+                name=provider_name,
+                builder=lambda s=settings: build_provider(s, provider_name),
+                replace=True,
+            )
+            provider = build_provider(settings, provider_name)
+            caps = provider.capabilities
+            return ProviderConfig(
+                provider=provider_name,
+                default_model=payload.default_model if payload.default_model is not None else provider.model,
+                available=payload.available if payload.available is not None else True,
+                capabilities=[
+                    c
+                    for c in ("chat", "stream", "tools", "vision", "json_mode")
+                    if payload.capabilities is None or c in payload.capabilities
+                    if getattr(caps, c, False)
+                ],
+            )
+        except ProviderConfigurationError as e:
+            raise status.HTTP_422_UNPROCESSABLE_ENTITY from e
+    raise status.HTTP_422_UNPROCESSABLE_ENTITY from Exception("Nenhum campo para atualizar")
+
+
+@router.get(
+    "/providers/{provider_name}",
+    response_model=ProviderConfig,
+    summary="Obtém configuração de um provedor específico",
+    description=(
+        "Retorna a configuração corrente de um provedor pelo nome. "
+        "O `available` field reflete o último health check; segredos nunca são expostos."
+    ),
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Provedor não encontrado."},
+        status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
+    },
+)
+async def get_provider(provider_name: str, request: Request) -> ProviderConfig:
+    settings: Settings = request.app.state.settings
+    existing = None
+    for name in enabled_provider_names(settings):
+        if name == provider_name:
+            existing = name
+            break
+    if existing is None:
+        raise status.HTTP_404_NOT_FOUND
+    try:
+        provider = build_provider(settings, provider_name)
+        caps = provider.capabilities
+        return ProviderConfig(
+            provider=provider_name,
+            default_model=provider.model,
+            available=True,
+            capabilities=[
+                c
+                for c in ("chat", "stream", "tools", "vision", "json_mode")
+                if getattr(caps, c, False)
+            ],
+        )
+    except ProviderConfigurationError as e:
+        raise status.HTTP_404_NOT_FOUND from e
+
+
+@router.delete(
+    "/providers/{provider_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove um provedor cadastrado",
+    description=(
+        "Remove um provedor do registry. O provedor padrão não pode ser removido."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Requer papel `admin`."},
+        status.HTTP_400_BAD_REQUEST: {"description": "Não é possível remover o provedor padrão."},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"description": "Provedor não encontrado ou removível."},
+    },
+)
+async def delete_provider(provider_name: str, request: Request) -> Response:
+    settings: Settings = request.app.state.settings
+    default = default_provider_name(settings)
+    if provider_name == default:
+        raise status.HTTP_400_BAD_REQUEST
+    raise status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 @router.get(
