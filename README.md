@@ -5,8 +5,9 @@ Backend do chat de IA via web, em **Python/FastAPI**.
 - **Versão reportada pelo pacote:** `1.1.0` (`app.__version__`); a implementação
   atual ainda não foi publicada nem etiquetada como release `2.0.0`.
 - **Funcionalidades no código:** gateway multi-provedor, compatibilidade
-  OpenAI/Anthropic/Ollama, SQLite para contas, cadastro público configurável,
-  personalização do chat e chaves BYOK criptografadas.
+  OpenAI/Anthropic/Ollama, NVIDIA NIM com chave e URL base configuráveis,
+  SQLite para contas, cadastro público configurável, personalização do chat e
+  chaves BYOK criptografadas.
 - **Estado de entrega:** critérios funcionais automatizados em boa parte; release
   permanece pendente de hardening, validação operacional e atualização final dos
   documentos de aceitação.
@@ -28,7 +29,7 @@ Backend do chat de IA via web, em **Python/FastAPI**.
 - Python 3.11+ (o CI usa 3.12)
 - `make` (opcional)
 - Docker + Docker Compose (opcional, para a imagem de produção)
-- Ollama local ou credenciais de um provedor de nuvem
+- Ollama local ou credenciais de um provedor de nuvem, como NVIDIA NIM
 
 ## Configuração
 
@@ -105,9 +106,26 @@ para os valores completos.
 | Grupo | Variáveis |
 |---|---|
 | Gateway | `AI_DEFAULT_MODEL`, `AI_MODEL_ALIASES`, `AI_ALLOWED_MODELS`, `AI_FALLBACK_CHAIN`, `AI_ENABLED_PROVIDERS`, `AI_MAX_RETRIES` |
-| Provedores | `OLLAMA_CLOUD_*`, `OPENAI_*`, `ANTHROPIC_*`, `GOOGLE_*`, `OPENAI_COMPAT_*` |
+| Provedores | `OLLAMA_CLOUD_*`, `OPENAI_*`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, `NVIDIA_DEFAULT_MODEL`, `ANTHROPIC_*`, `GOOGLE_*`, `OPENAI_COMPAT_*` |
 | SQLite | `DATABASE_URL`, `SQLITE_*`, `USERS_CACHE_*`, `ALLOW_TEST_USERS`, `TEST_USER_*`, `DB_*` |
 | Compatibilidade | `COMPAT_OPENAI_ENABLED`, `COMPAT_ANTHROPIC_ENABLED`, `COMPAT_OLLAMA_ENABLED`, `COMPAT_API_KEYS`, `COMPAT_API_KEY_RATE_PER_MIN`, `COMPAT_ALLOW_ANONYMOUS`, `COMPAT_OLLAMA_ALLOW_LOCALHOST` |
+
+Para usar NVIDIA NIM com uma chave global do servidor, configure as variáveis no
+`.env`. O endpoint hospedado padrão é `https://integrate.api.nvidia.com/v1`;
+`AI_ENABLED_PROVIDERS` deve incluir `nvidia` (ou ficar vazio para autodetecção).
+
+```dotenv
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_DEFAULT_MODEL=meta/llama-3.1-8b-instruct
+AI_ENABLED_PROVIDERS=ollama,nvidia
+AI_DEFAULT_MODEL=nvidia/meta/llama-3.1-8b-instruct
+```
+
+O catálogo NVIDIA da API é filtrado para mostrar os modelos documentados para
+chat completions. Para chaves BYOK, a URL base pode ser enviada junto da chave;
+se omitida, a API usa `NVIDIA_BASE_URL`. URLs personalizadas passam por
+validação HTTPS e DNS público para usuários comuns.
 
 ## Execução
 
@@ -135,9 +153,9 @@ Produção (mesma entrada usada no contêiner):
 | POST | `/api/v1/auth/guest` | Emite token de convidado (`gid` + `usage`) |
 | GET | `/api/v1/usage` | Limites e uso restante do chamador |
 | POST | `/api/v1/chat` | Chat (JSON ou SSE) |
-| GET | `/api/v1/models` | Catálogo multi-provedor (inclui origem da chave) |
+| GET | `/api/v1/models` | Catálogo multi-provedor (inclui origem da chave); NVIDIA lista apenas modelos LLM documentados para chat |
 | GET | `/api/v1/me/providers` | Lista chaves BYOK mascaradas |
-| PUT | `/api/v1/me/providers/{provider}` | Salva/atualiza uma chave BYOK |
+| PUT | `/api/v1/me/providers/{provider}` | Salva/atualiza uma chave BYOK; NVIDIA aceita URL base opcional |
 | DELETE | `/api/v1/me/providers/{provider}` | Remove uma chave BYOK |
 | POST | `/api/v1/me/providers/{provider}/test` | Testa uma chave salva |
 | GET | `/api/v1/admin/stats` | Estatísticas em memória (admin) |
