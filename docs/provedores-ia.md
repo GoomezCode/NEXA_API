@@ -2,7 +2,8 @@
 
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
-> **Estado:** planejado para as fases F12–F17; a API em produção permanece na v1.1.0.
+> **Estado do código:** gateway multi-provedor e BYOK implementados. O pacote ainda
+> reporta `1.1.0`; não há release `2.0.0` publicada/tagueada.
 
 ## 1. Objetivo
 
@@ -239,6 +240,32 @@ Metadados por modelo: `size_bytes`, `modified_at`, `family`, `parameter_size`,
 - Consultar o catálogo **não** consome cota.
 - Falha de um provedor: `available=false` e catálogo dos demais preservado.
 - Falha total: `503 provider_unavailable`.
+
+### 6.1 Chaves próprias (BYOK)
+
+Contas `user` e `admin` podem guardar uma chave por provedor em
+`/api/v1/me/providers`. A chave é criptografada com Fernet antes da gravação no
+SQLite; as respostas expõem somente os últimos quatro caracteres e metadados.
+`guest` não pode listar, testar, salvar ou remover chaves.
+
+| Método | Rota | Ação |
+|---|---|---|
+| GET | `/api/v1/me/providers` | Lista provedores configurados com chave mascarada |
+| PUT | `/api/v1/me/providers/{provider}` | Cria ou substitui a chave do provedor |
+| DELETE | `/api/v1/me/providers/{provider}` | Remove a chave |
+| POST | `/api/v1/me/providers/{provider}/test` | Executa verificação de saúde com a chave salva |
+
+Configure `KEY_ENCRYPTION_SECRET` com pelo menos 32 caracteres aleatórios. A
+API recusa inicialização em produção se o segredo estiver ausente ou for fraco.
+Para `openai_compatible`, usuários comuns só podem cadastrar `base_url` HTTPS
+resolvida para IPs públicos; administradores podem usar endpoints privados de
+infraestrutura controlada.
+
+Ao resolver o chat, uma chave do usuário tem precedência para o provedor/modelo
+selecionado e não cai silenciosamente para a chave global se falhar. O evento
+`done` e o catálogo de modelos indicam `key_source: user|server`. Uso BYOK não
+consome cota diária, mas mantém rate limit por minuto. Erros e logs não incluem
+o segredo.
 
 ## 7. Saúde
 

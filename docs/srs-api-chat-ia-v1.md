@@ -10,18 +10,18 @@
 | **Data** | 29/10/2026 |
 | **Padrões de referência** | IEEE Std 830-1998, ISO/IEC/IEEE 29148:2018 |
 | **Documento de origem** | `levantamento-chat-ia-web.md` (documento externo a este repositório) |
-| **Estado** | **F16 CONCLUIDO** - compatibilidade Ollama (`/api/chat`, `/api/tags`, `/api/show`, `/api/ps`) implementada. Próxima: F17 (hardening, performance e release v2.0.0). |
+| **Estado** | Gateway e compatibilidades implementados; cadastro público configurável, personalização e BYOK adicionados. Hardening e release `2.0.0` ainda pendentes. |
 
 ### Histórico de revisões
 
 | Versão | Data | Descrição |
 |---|---|---|
-| 2.0 | 29/10/2026 | Gateway multi-provedor (Ollama local, Ollama Cloud, OpenAI, Anthropic, Gemini e OpenAI-compatible); camada de compatibilidade OpenAI, Anthropic (Claude Code) e Ollama; SQLite exclusivo para usuários (ADMIN permanente e usuários de teste descartáveis); metas de performance do banco; novos critérios CA-26..CA-47 |
+| 2.0 | 29/10/2026 | Gateway multi-provedor; compatibilidade OpenAI, Anthropic e Ollama; SQLite para contas e chaves BYOK criptografadas; cadastro configurável e personalização do chat |
 | 1.2 | 28/10/2026 | Catálogo de modelos locais (`GET /models`) e seleção opcional do modelo por requisição de chat; guest passa a escolher o modelo (RN-13 revisada), mantendo proibidos `system` e parâmetros de geração; allowlist opcional (`AI_ALLOWED_MODELS`) e cache curto do catálogo (`MODELS_CACHE_SECONDS`); novos critérios CA-24/CA-25 |
 | 1.1 | 28/10/2026 | Revisão de consistência após análise do SRS: contrato de SSE explicitado (consumo via `fetch`, não `EventSource`); limite de tokens de saída; descoberta e reset de `gid` no admin; semântica única de cota e de `usage`; schemas de `/admin/*` e `/health*`; variáveis de ambiente faltantes; separação `AI_PROVIDER`/`CLOUD_PROVIDER`; CORS com `expose_headers`; remoção da exceção de log de conteúdo; prioridades alinhadas aos critérios de aceitação |
 | 1.0 | 28/10/2026 | Primeira versão do SRS da API, **sem banco de dados**. Existia um único usuário salvo (**ADMIN**, com senha, vindo da configuração) e usuários **ghost** (anônimos) com limite de uso. A persistência ficava para a próxima versão da API |
 
-> **Resumo da versão atual:** a API deixa de ser um cliente de um único provedor e passa a ser um **gateway de IA multi-provedor**, com roteamento por `provider/model`, catálogo agregado e fallback controlado. Além da API nativa (`/api/v1`), expõe **camadas de compatibilidade** com OpenAI (`/v1`), Anthropic/Claude Code (`/v1/messages`) e Ollama (`/api`). O **SQLite** passa a existir, mas **exclusivamente para usuários**: um **ADMIN permanente e inviolável** e **usuários de teste descartáveis**. O chat continua **efêmero**: nenhuma mensagem, pergunta ou resposta é persistida. As cotas e o rate limit continuam em memória (ou Redis, quando configurado).
+> **Resumo da implementação:** gateway multi-provedor, catálogo e fallback; compatibilidade OpenAI, Anthropic/Claude Code e Ollama; cadastro público configurável; personalização de chat limitada; e chaves BYOK criptografadas em SQLite. O banco contém contas, chaves BYOK cifradas e migrações, nunca histórico de conversa. A versão do pacote e o release permanecem pendentes de atualização/aceite operacional.
 
 ---
 
@@ -170,16 +170,16 @@ O frontend e os sistemas externos **nunca** se comunicam diretamente com a IA. S
 - **Framework:** FastAPI (ASGI, executado com Uvicorn).
 - **IA local:** Ollama (padrão `http://localhost:11434`).
 - **IA em nuvem:** OpenAI, Anthropic, Google Gemini, Ollama Cloud e provedores OpenAI-compatible.
-- **Armazenamento:** SQLite em arquivo local (padrão `./data/nexa.db`), com WAL. Contadores de uso ficam em memória (nó único e **processo único**) ou em Redis (vários nós/processos, ver RP-07).
+- **Armazenamento:** SQLite em arquivo local (padrão `./data/nexa.db`), com WAL, para contas, chaves BYOK criptografadas e migrações. Contadores ficam em memória ou Redis (ver RP-07).
 - **Sistemas operacionais:** Linux (produção); Windows, macOS e Linux (desenvolvimento).
 
 ### 2.5 Restrições gerais
 
 - Backend obrigatoriamente em **Python/FastAPI**.
-- **SQLite é o único banco** nesta versão e armazena **somente usuários**. Não há histórico de conversas, mensagens, auditoria persistente ou billing.
+- **SQLite é o único banco** nesta versão e armazena contas, chaves BYOK criptografadas e migrações. Não há histórico de conversas, mensagens, auditoria persistente ou billing.
 - O **ADMIN é permanente e inviolável**: sobrevive a limpezas, migrações e até à perda do arquivo do banco (fallback para a configuração).
 - Troca de provedor e de modelo é feita por **configuração e por requisição**, sem alterar as rotas.
-- Modelos de IA **não possuem memória**: o contexto é enviado a cada requisição.
+- Modelos não mantêm memória entre chamadas; nome e memórias opcionais são enviados em cada requisição.
 - Desempenho da IA local depende do hardware (CPU/GPU/VRAM) disponível.
 - Contadores em memória são **voláteis**: reiniciar a API zera os limites de uso (ver RN-12).
 - Os contadores em memória exigem **um único processo** (`UVICORN_WORKERS=1`); sem Redis, a API recusa múltiplos processos (RP-07, RNF-CON-06).
@@ -390,6 +390,7 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | **RF-AUT-11** | As rotas de compatibilidade devem aceitar uma **API key NEXA** (`nxa_...`) em `Authorization: Bearer` ou `x-api-key`, comparada em tempo constante. Chave ausente/inválida retorna `401` no envelope da superfície chamada. | M |
 | **RF-AUT-12** | Usuários de teste devem autenticar com usuário e senha e receber JWT com papel `user`; eles não podem acessar `/admin/*` nem receber privilégios de admin. | M |
 | **RF-AUT-13** | A API key é um segredo de operação: só pode ser lida de `COMPAT_API_KEYS`, nunca é retornada e apenas o prefixo/fingerprint aparece em log. | M |
+| **RF-AUT-14** | A API deve expor `POST /api/v1/auth/register` quando `ALLOW_SELF_REGISTRATION=true`; por padrão, o cadastro fica desativado. Cadastro valida username `[a-zA-Z0-9._-]` (3–64), senha (8–128), aplica rate limits por IP e retorna JWT com papel `user` em `201` e `Cache-Control: no-store`. | M |
 
 #### 3.2.2 Chat nativo (RF-CHAT)
 
@@ -412,6 +413,8 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | **RF-CHAT-15** | O chat nativo deve aceitar `tools` e `tool_choice` opcionais, repassando-os ao provedor quando a capacidade `tools` estiver disponível; a resposta pode conter `tool_calls` e `finish_reason = tool_use`. | S |
 | **RF-CHAT-16** | A resposta JSON deve incluir `provider`, `model` (nome no provedor), `model_id` (canônico), `finish_reason` e `provider_usage` (tokens de entrada/saída, quando disponíveis), além do objeto `usage` de cota. | M |
 | **RF-CHAT-17** | Requisições de compatibilidade não usam o schema nativo, mas compartilham o mesmo pipeline de validação, cota, roteamento, timeout e logging de metadados. | M |
+| **RF-CHAT-18** | O chat pode receber `personalization` com `display_name` e memórias. A API valida limites configuráveis, escapa conteúdo e monta um bloco de sistema servidor-gerado antes das mensagens, tratando memórias como dados, não instruções. | M |
+| **RF-CHAT-19** | Respostas do chat e catálogo de modelos devem indicar `key_source` (`server` ou `user`) sem expor credenciais. | M |
 
 #### 3.2.3 Limites de uso (RF-USO)
 
@@ -657,7 +660,7 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | **RN-04** | Alterar o administrador (usuário ou senha) exige alterar a configuração e reiniciar a API. Tokens já emitidos continuam válidos até expirar; para invalidá-los de imediato, troca-se o `JWT_SECRET`. |
 | **RN-05** | O chat é efêmero: a API não guarda histórico. O cliente mantém e reenvia o contexto. |
 | **RN-06** | Mensagens `system` do cliente são aceitas somente se `ALLOW_CLIENT_SYSTEM_MESSAGES = true` (e nunca para guest); caso contrário, são rejeitadas com `422`. Se aceitas, devem vir antes da primeira mensagem `user`; o `DEFAULT_SYSTEM_PROMPT`, se definido, é prefixado. Não existe `system_prompt` separado. |
-| **RN-07** | O modelo não possui memória; o contexto enviado é encaminhado integralmente ao provedor após validação e limites. |
+| **RN-07** | O modelo não mantém memória entre chamadas; personalização enviada em uma requisição é aplicada somente ao contexto daquela chamada, após validação e limites. |
 | **RN-08** | A cota do guest é medida por `gid` **e** por IP; a cota efetiva é o menor valor restante. Novo token renova o `gid`, mas não o IP. |
 | **RN-09** | A cota diária reinicia à 00:00 UTC (janela fixa); `resets_at` é ISO 8601 UTC e `X-RateLimit-Reset` é epoch seconds. O limite por minuto usa janela deslizante de 60 s. |
 | **RN-10** | Mensagem barrada por limite não consome cota nem chega ao provedor. Falha do provedor antes do primeiro trecho devolve a cota do `gid`/`uid` e do IP. |
@@ -678,9 +681,11 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | **RN-25** | As rotas de compatibilidade compartilham cotas, rate limit, allowlist e timeouts do núcleo; não têm cota própria, exceto o limite por API key. |
 | **RN-26** | Erros nas rotas de compatibilidade usam o envelope da API externa (OpenAI, Anthropic ou Ollama), não o Problem Details nativo. |
 | **RN-27** | API keys NEXA são segredos de operação; só o prefixo/fingerprint aparece em log. |
-| **RN-28** | Chaves de provedores nunca são expostas, nem em erros de configuração; a mensagem indica a variável ausente, não o valor. |
-| **RN-29** | Nenhuma superfície persiste conversa; o SQLite contém apenas usuários e migrações. |
+| **RN-28** | Chaves globais são configuradas no ambiente; chaves BYOK são criptografadas em repouso com `KEY_ENCRYPTION_SECRET`. Nenhuma chave é devolvida em texto puro nem incluída em logs/erros. |
+| **RN-29** | Nenhuma superfície persiste conversa; o SQLite contém contas, chaves BYOK criptografadas e controle de migrações. |
 | **RN-30** | O SQLite tem um único escritor; escritas são serializadas e curtas, e leituras usam pool/WAL para não bloquear. |
+| **RN-31** | Usuários com chave própria usam-na para o provedor correspondente; falha não dispara fallback silencioso para a credencial global. BYOK mantém limite por minuto e não debita cota diária. |
+| **RN-32** | `openai_compatible` de usuário comum exige HTTPS e resolução DNS para IPs públicos; exceções administrativas destinam-se somente a infraestrutura controlada. |
 
 ---
 
@@ -689,7 +694,7 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | ID | Restrição |
 |---|---|
 | **RP-01** | Linguagem Python; framework FastAPI. |
-| **RP-02** | **SQLite é o único banco** e armazena somente usuários/migrações. Proibidas tabelas de conversa, mensagem, feedback ou auditoria persistente. |
+| **RP-02** | **SQLite é o único banco** e armazena contas, chaves BYOK criptografadas e migrações. Proibidas tabelas de conversa, mensagem, feedback ou auditoria persistente. |
 | **RP-03** | Autenticação baseada em JWT (`PyJWT`), com suporte nativo OAuth2/Bearer do FastAPI. |
 | **RP-04** | Comunicação com provedores via `httpx` assíncrono. |
 | **RP-05** | Streaming nativo via SSE com `StreamingResponse`, cabeçalhos anti-buffer e heartbeat. |
@@ -699,7 +704,7 @@ Toda a configuração deve ser validada na inicialização (tipo, faixa e obriga
 | **RP-09** | O frontend consome o SSE nativo via `fetch`/`ReadableStream`; `EventSource` não é compatível com `POST` + `Authorization`. |
 | **RP-10** | SQLite acessado com SQL parametrizado (`aiosqlite` ou `sqlite3` em threadpool), sem ORM pesado; migrações em SQL versionado. |
 | **RP-11** | As rotas de compatibilidade são camadas de tradução; não duplicam regra de negócio nem acessam o banco diretamente. |
-| **RP-12** | API keys NEXA vivem em `COMPAT_API_KEYS`; não há gestão de chaves no banco nesta versão. |
+| **RP-12** | API keys NEXA de compatibilidade vivem em `COMPAT_API_KEYS`; chaves de provedores do usuário são armazenadas separadamente, criptografadas com `KEY_ENCRYPTION_SECRET`. |
 | **RP-13** | A proteção do admin é implementada em duas camadas: guarda na aplicação + triggers no SQLite. |
 | **RP-14** | WAL obrigatório em produção; `synchronous=NORMAL` é o padrão, com `FULL` disponível para requisitos mais rígidos. |
 | **RP-15** | Escritas no SQLite são serializadas por uma única conexão/lock assíncrono; leituras usam pool. |
@@ -720,6 +725,7 @@ Prefixos: nativo `/api/v1`; compatibilidade OpenAI `/v1`; Anthropic `/v1`; Ollam
 |---|---|---|---|---|
 | POST | `/api/v1/auth/login` | 🔓 | Login do admin ou de usuário de teste; retorna JWT | RF-AUT-02 a 04, 06, 12 |
 | POST | `/api/v1/auth/guest` | 🔓 | Emite token de convidado | RF-AUT-05, 06, 08 |
+| POST | `/api/v1/auth/register` | 🔓 | Cria conta `user` quando `ALLOW_SELF_REGISTRATION=true` | RF-AUT-14 |
 
 **Corpo do login**
 
@@ -797,7 +803,7 @@ O `usage` na emissão refere-se ao `gid` recém-criado; quando a cota do IP já 
 
 | Método | Rota | Auth | Descrição | Requisitos |
 |---|---|---|---|---|
-| POST | `/api/v1/chat` | 🔐 | Envia mensagens e recebe a resposta (JSON ou SSE) | RF-CHAT-01 a 17, RF-USO-01 a 16 |
+| POST | `/api/v1/chat` | 🔐 | Envia mensagens e recebe a resposta (JSON ou SSE) | RF-CHAT-01 a 19, RF-USO-01 a 16 |
 
 **Corpo da requisição**
 
@@ -810,6 +816,10 @@ O `usage` na emissão refere-se ao `gid` recém-criado; quando a cota do IP já 
   ],
   "stream": true,
   "model": "ollama/llama3.1",
+  "personalization": {
+    "display_name": "Marina",
+    "memories": [{"title": "Preferência", "content": "Prefiro exemplos em português."}]
+  },
   "tools": [],
   "tool_choice": "auto"
 }
@@ -820,6 +830,7 @@ O `usage` na emissão refere-se ao `gid` recém-criado; quando a cota do IP já 
 | `messages` | array | Sim | Lista completa do contexto; a última deve ser `role = user` |
 | `stream` | booleano | Não | `true` (padrão): SSE; `false`: JSON completo |
 | `model` | string | Não | Model ID `provider/model` ou alias; omitido, usa `AI_DEFAULT_MODEL` |
+| `personalization` | objeto | Não | Nome de exibição e memórias a inserir em contexto servidor-gerado; limitado por `PERSONALIZATION_*` |
 | `tools` | array | Não | Ferramentas no formato interno; requer capacidade `tools` |
 | `tool_choice` | string/objeto | Não | `auto`, `none`, `required` ou ferramenta específica |
 
@@ -1200,6 +1211,26 @@ As rotas de usuários estão listadas em 3.7.4. Regras adicionais:
 - A listagem usa cursor opaco (`next_cursor`) e limite máximo de 100.
 - Nenhuma resposta inclui `password_hash`.
 
+#### 3.7.11 Chaves BYOK
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| GET | `/api/v1/me/providers` | 🔐 user/admin | Lista provedores do usuário com chave mascarada |
+| PUT | `/api/v1/me/providers/{provider}` | 🔐 user/admin | Cria ou atualiza uma chave criptografada |
+| DELETE | `/api/v1/me/providers/{provider}` | 🔐 user/admin | Remove a chave cadastrada |
+| POST | `/api/v1/me/providers/{provider}/test` | 🔐 user/admin | Testa a chave sem devolver seu valor |
+
+O papel `guest` recebe `403`. IDs aceitos: `openai`, `anthropic`, `google`,
+`ollama_cloud` e `openai_compatible`. Este último exige `base_url` e
+`default_model`; usuários comuns são limitados a HTTPS/IPs públicos. O segredo
+`KEY_ENCRYPTION_SECRET` é obrigatório em produção e deve conter pelo menos 32
+caracteres aleatórios. Respostas exibem apenas `key_last4`, nunca `api_key`.
+
+Uma chave cadastrada é selecionada por usuário e provedor/modelo. Falha nessa
+chave não usa a credencial global como fallback. O campo `key_source` do evento
+`done` e do catálogo permite à UI apresentar a origem. O uso BYOK é isento da
+cota diária de mensagens, mas permanece sujeito ao rate limit por minuto.
+
 ---
 
 ### 3.8 Padrão de erros
@@ -1312,7 +1343,7 @@ A API será considerada aceita quando:
 | **CA-42** | Usuários de teste podem ser criados, autenticados, listados e excluídos; a limpeza atinge apenas `is_test = 1`. |
 | **CA-43** | As metas de performance do SQLite (leitura p95 ≤ 2 ms, listagem de 10 mil usuários p95 ≤ 20 ms, escrita p95 ≤ 10 ms) são medidas e atendidas. |
 | **CA-44** | Migrações preservam o admin, criam backup e a API recusa iniciar se o admin não existir após a migração. |
-| **CA-45** | O SQLite contém apenas usuários/migrações; nenhum conteúdo de chat é gravado (revisão do CA-06). |
+| **CA-45** | O SQLite contém contas, chaves BYOK criptografadas e migrações; nenhum conteúdo de chat é gravado (revisão do CA-06). |
 | **CA-46** | `README.md`, `.env.example`, SRS, plano, matriz e OpenAPI estão consistentes com a v2.0. |
 | **CA-47** | O sistema passa nos testes de contrato de compatibilidade OpenAI, Anthropic e Ollama e nos testes de segurança de chaves. |
 
@@ -1324,12 +1355,12 @@ A API será considerada aceita quando:
 
 - Frontend React e seus requisitos.
 - Histórico de conversas, mensagens salvas, fixar/arquivar, ramificação e feedback.
-- Cadastro público, verificação de e-mail, recuperação de senha e SMTP.
+- Verificação de e-mail, recuperação de senha e SMTP.
 - Refresh token, sessões por dispositivo e revogação de tokens no servidor.
 - Auditoria persistente, estatísticas históricas e exportação de dados (LGPD).
 - Cobrança, planos pagos e controle de custo por tokens.
 - Login social, MFA, upload de arquivos, RAG e embeddings.
-- Tabela de API keys no banco; gestão de chaves pelo admin.
+- Gestão de API keys de compatibilidade (`nxa_...`) pelo admin; essas chaves continuam em configuração.
 - Suporte a múltiplos bancos além do SQLite.
 
 ### 5.2 Decisões e premissas adotadas neste SRS

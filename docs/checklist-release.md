@@ -1,7 +1,7 @@
 # Checklist de release — Nexa API
 
-> Este documento preserva o release **v1.1.0** e adiciona o checklist
-> **planejado** da **v2.0** (SRS v2.0, fases F12–F17).
+> Este documento preserva o release **v1.1.0** e acompanha o checklist da
+> **v2.0**. O código inclui F12–F16 e incrementos F18; a release não está fechada.
 
 ## v1.1.0 (histórico)
 
@@ -100,13 +100,13 @@ git tag -a v1.1.0 -m "Nexa API v1.1.0"
 
 ---
 
-## v2.0 — checklist planejado
+## v2.0 — checklist em andamento
 
 | Item | Valor |
 |---|---|
 | Versão da API | `2.0.0` |
 | Tag | `v2.0.0` |
-| Data prevista | 02/12/2026 (com buffer) |
+| Data | Ainda não definida |
 | Escopo | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | SRS | [`srs-api-chat-ia-v1.md`](srs-api-chat-ia-v1.md) (v2.0) |
 | Plano | [`plano-implementacao-api-chat-ia-v1.md`](plano-implementacao-api-chat-ia-v1.md) (v2.0) |
@@ -128,6 +128,18 @@ git tag -a v1.1.0 -m "Nexa API v1.1.0"
 - [ ] **Rodada manual** com Ollama real, provedores de nuvem (fake/sandbox) e
   Claude Code.
 - [ ] **Tag `v2.0.0`** criada no commit de entrega da F17.
+
+### Incremento F18 — critérios adicionais
+
+- [x] Cadastro público implementado e desligado por padrão; limite por IP.
+- [x] Personalização limitada e montada no servidor, sem aceitar `system` do cliente como substituto.
+- [x] Implementação BYOK criptografada, mascarada e isolada por usuário; convidados recebem `403` (teste dedicado existe; a execução ainda acusa `ResourceWarning` de conexão SQLite não fechada no caso guest).
+- [x] BYOK identificado no catálogo e nos eventos `done`; sem cota diária e com rate limit por minuto.
+- [x] `.env.example`, OpenAPI e documentação descrevem os novos campos, rotas e segredos.
+- [ ] Confirmar `KEY_ENCRYPTION_SECRET` forte no ambiente de produção antes de ativar o serviço.
+- [ ] Executar a suíte completa sem avisos/falhas e completar auditoria de cobertura.
+- [ ] Teste ponta a ponta com provedores reais ou sandbox autorizado.
+- [ ] Definir versão/tag de release e executar o checklist operacional final.
 
 ### Checklist de aceitação v2.0
 
