@@ -23,6 +23,10 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/health/db": {"get"},
     "/health/ready": {"get"},
     "/api/v1/auth/login": {"post"},
+    "/api/v1/auth/register": {"post"},
+    "/api/v1/me/providers": {"get"},
+    "/api/v1/me/providers/{provider}": {"put", "delete"},
+    "/api/v1/me/providers/{provider}/test": {"post"},
     "/api/v1/auth/guest": {"post"},
     "/api/v1/usage": {"get"},
     "/api/v1/chat": {"post"},
@@ -52,6 +56,7 @@ PUBLIC_OPERATIONS = {
     ("/health/db", "get"),
     ("/health/ready", "get"),
     ("/api/v1/auth/login", "post"),
+    ("/api/v1/auth/register", "post"),
     ("/api/v1/auth/guest", "post"),
 }
 
@@ -69,6 +74,8 @@ DOCUMENTED_EXAMPLE_SCHEMAS = (
     "HealthResponse",
     "ReadinessResponse",
     "LoginRequest",
+    "RegisterRequest",
+    "PersonalizationInput",
     "DbHealthResponse",
     "DbStatusResponse",
     "UserCreate",
@@ -154,7 +161,11 @@ def test_write_operations_document_the_request_body(client: TestClient) -> None:
     for path, method, operation in _operations(spec):
         if method != "post":
             continue
-        if path in {"/api/v1/auth/guest", "/api/v1/admin/users/cleanup"}:
+        if path in {
+            "/api/v1/auth/guest",
+            "/api/v1/admin/users/cleanup",
+            "/api/v1/me/providers/{provider}/test",
+        }:
             assert "requestBody" not in operation
             continue
         assert operation.get("requestBody"), f"POST {path} sem requestBody"

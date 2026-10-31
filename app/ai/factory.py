@@ -13,6 +13,7 @@ from app.ai.anthropic import AnthropicProvider
 from app.ai.base import AIProvider, ProviderConfigurationError
 from app.ai.fake import FakeProvider
 from app.ai.google import GoogleProvider
+from app.ai.nvidia import NvidiaProvider
 from app.ai.ollama import OllamaProvider
 from app.ai.openai import OpenAIProvider
 from app.ai.openai_compatible import OpenAICompatibleProvider
@@ -24,6 +25,7 @@ PROVIDER_LABELS: dict[str, str] = {
     "ollama": "Ollama local",
     "ollama_cloud": "Ollama Cloud",
     "openai": "OpenAI",
+    "nvidia": "NVIDIA NIM",
     "anthropic": "Anthropic",
     "google": "Google Gemini",
     "openai_compatible": "OpenAI-compatible",
@@ -78,6 +80,18 @@ def _build_openai(settings: Settings) -> AIProvider:
     )
 
 
+def _build_nvidia(settings: Settings) -> AIProvider:
+    api_key = _require(settings.nvidia_api_key_value, "NVIDIA_API_KEY", "nvidia")
+    return NvidiaProvider(
+        settings,
+        name="nvidia",
+        base_url=settings.nvidia_base_url,
+        api_key=api_key,
+        default_model=settings.nvidia_default_model,
+        label="NVIDIA NIM",
+    )
+
+
 def _build_anthropic(settings: Settings) -> AIProvider:
     _require(settings.anthropic_api_key_value, "ANTHROPIC_API_KEY", "anthropic")
     return AnthropicProvider(settings)
@@ -106,10 +120,65 @@ def _build_fake(settings: Settings) -> AIProvider:
     return FakeProvider()
 
 
+def build_user_provider(
+    settings: Settings,
+    *,
+    provider: str,
+    api_key: str,
+    base_url: str | None = None,
+    default_model: str | None = None,
+) -> AIProvider:
+    """Constrói um adapter com credenciais fornecidas para uma única requisição."""
+    if provider == "openai":
+        return OpenAIProvider(
+            settings,
+            api_key=api_key,
+            default_model=default_model,
+            base_url=base_url or settings.openai_base_url,
+            label="OpenAI",
+        )
+    if provider == "nvidia":
+        return NvidiaProvider(
+            settings,
+            name="nvidia",
+            api_key=api_key,
+            base_url=base_url or settings.nvidia_base_url,
+            default_model=default_model or settings.nvidia_default_model,
+            label="NVIDIA NIM",
+        )
+    if provider == "anthropic":
+        return AnthropicProvider(
+            settings, api_key=api_key, base_url=base_url, default_model=default_model
+        )
+    if provider == "google":
+        return GoogleProvider(
+            settings, api_key=api_key, base_url=base_url, default_model=default_model
+        )
+    if provider == "ollama_cloud":
+        return OllamaProvider(
+            settings,
+            name=provider,
+            api_key=api_key,
+            base_url=base_url or settings.ollama_cloud_url,
+            default_model=default_model or settings.ollama_cloud_default_model,
+        )
+    if provider == "openai_compatible":
+        if not base_url:
+            raise ProviderConfigurationError("OpenAI-compatible exige base_url.")
+        return OpenAICompatibleProvider(
+            settings,
+            api_key=api_key,
+            base_url=base_url,
+            default_model=default_model or "",
+        )
+    raise ProviderConfigurationError(f"Provedor BYOK não suportado: {provider}")
+
+
 _REGISTRY: dict[str, ProviderBuilder] = {
     "ollama": _build_ollama,
     "ollama_cloud": _build_ollama_cloud,
     "openai": _build_openai,
+    "nvidia": _build_nvidia,
     "anthropic": _build_anthropic,
     "google": _build_google,
     "openai_compatible": _build_openai_compatible,
@@ -172,6 +241,8 @@ def enabled_provider_names(settings: Settings) -> tuple[str, ...]:
         names.append("openai")
     if settings.anthropic_api_key_value:
         names.append("anthropic")
+    if settings.nvidia_api_key_value:
+        names.append("nvidia")
     if settings.google_api_key_value:
         names.append("google")
     if settings.openai_compat_base_url:

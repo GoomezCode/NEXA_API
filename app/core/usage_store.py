@@ -77,6 +77,7 @@ class UsageStore(Protocol):
         ip: str,
         daily_limit: int | None = None,
         rate_limit: int | None = None,
+        count_daily: bool = True,
     ) -> UsageDecision: ...
 
     async def refund(self, *, role: str, subject: str, ip: str) -> None: ...
@@ -96,7 +97,7 @@ class UsageStore(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class _Limits:
-    daily_limit: int
+    daily_limit: int | None
     ip_daily_limit: int
     rate_limit: int
 
@@ -202,6 +203,7 @@ class InMemoryUsageStore:
         ip: str,
         daily_limit: int | None = None,
         rate_limit: int | None = None,
+        count_daily: bool = True,
     ) -> UsageDecision:
         """Consome 1 unidade de forma atômica, verificando todas as cotas."""
         async with self._lock:
@@ -224,7 +226,7 @@ class InMemoryUsageStore:
                     retry_at=daily_reset_at(now),
                     limits=limits,
                 )
-            if role == "user" and gid_used >= limits.daily_limit:
+            if role == "user" and limits.daily_limit is not None and gid_used >= limits.daily_limit:
                 return self._denied(
                     "user_daily_limit_reached",
                     role=role,
@@ -261,7 +263,8 @@ class InMemoryUsageStore:
                     limits=limits,
                 )
 
-            self._increment(self._gid_daily, subject, today)
+            if count_daily:
+                self._increment(self._gid_daily, subject, today)
             if role == "guest":
                 self._increment(self._ip_daily, ip, today)
                 self._guests[subject] = _GuestRecord(ip=ip, last_seen=now)
@@ -401,7 +404,11 @@ class InMemoryUsageStore:
                 subject=subject,
                 ip=ip,
                 now=now,
-                daily_limit=limits.daily_limit if role == "user" else None,
+                daily_limit=(
+                    (limits.daily_limit if limits.daily_limit is not None else -1)
+                    if role == "user"
+                    else None
+                ),
                 rate_limit=limits.rate_limit if role == "user" else None,
             ),
             code=code,
@@ -412,7 +419,9 @@ class InMemoryUsageStore:
         if role == "user":
             return _Limits(
                 daily_limit=(
-                    self._settings.test_user_default_daily_messages
+                    None
+                    if daily_limit == -1
+                    else self._settings.test_user_default_daily_messages
                     if daily_limit is None
                     else daily_limit
                 ),
@@ -454,16 +463,19 @@ class InMemoryUsageStore:
         today = now.date()
         gid_used = self._daily_used(self._gid_daily, subject, today)
         minute_used = self._peek_minute(self._minute_key(role, subject), now)
-        daily_remaining = max(0, limits.daily_limit - gid_used)
+        daily_remaining = (
+            max(0, limits.daily_limit - gid_used) if limits.daily_limit is not None else None
+        )
         if role == "guest":
             ip_used = self._daily_used(self._ip_daily, ip, today)
+            assert daily_remaining is not None
             daily_remaining = min(daily_remaining, max(0, limits.ip_daily_limit - ip_used))
         return UsageInfo(
             daily_limit=limits.daily_limit,
             daily_remaining=daily_remaining,
             per_minute_limit=limits.rate_limit,
             per_minute_remaining=max(0, limits.rate_limit - minute_used),
-            resets_at=daily_reset_at(now),
+            resets_at=daily_reset_at(now) if limits.daily_limit is not None else None,
         )
 
     def _minute_key(self, role: str, subject: str) -> str:

@@ -11,7 +11,7 @@
 | **Documento de referência** | `docs/srs-api-chat-ia-v1.md` (SRS v2.0) |
 | **Escopo** | Gateway multi-provedor, compatibilidade OpenAI/Anthropic/Ollama e SQLite de usuários |
 | **Público-alvo** | Desenvolvedores, QA e responsável técnico do projeto |
-| **Estado** | **Concluído** - F17 hardening, performance e release `v2.0.0` finalizado. |
+| **Estado** | F12–F16 implementadas. F17 (hardening, aceite operacional e release) permanece aberta; cadastro público, personalização e BYOK foram adicionados no incremento F18. |
 
 ### Histórico de revisões
 
@@ -58,7 +58,7 @@ Uma **API REST em Python/FastAPI** que evolui a v1.1.0 para:
 ### 1.2 Fora de escopo (herdado do SRS §5.1)
 
 - Frontend React, histórico de conversas, feedback, e-mail, refresh token, auditoria persistente, billing, MFA, upload/RAG e embeddings.
-- Tabela de API keys no banco; as chaves de compatibilidade ficam em `COMPAT_API_KEYS`.
+- Chaves de compatibilidade ficam em `COMPAT_API_KEYS`; o gerenciamento BYOK por usuário está descrito no incremento F18.
 - Bancos além do SQLite.
 - Implementação de um SDK próprio; os adapters usam `httpx`.
 
@@ -71,7 +71,23 @@ API executável localmente e em contêiner, com:
 - cobertura ≥ **80%** em `app/api`, `app/core`, `app/ai`, `app/compat` e `app/db`;
 - metas de performance do SQLite medidas em benchmark;
 - pipeline de lint, tipagem e testes verde;
-- release `v2.0.0`.
+- release `v2.0.0` após fechar F17 e verificar os critérios abaixo.
+
+### 1.4 Incremento F18 — cadastro, personalização e BYOK
+
+Este incremento acrescenta requisitos aprovados no plano API + Web e já presentes
+no código. O versionamento reportado pelo pacote não foi alterado; portanto estas
+mudanças não significam que o release `v2.0.0` foi publicado.
+
+- `POST /api/v1/auth/register`, desativado por padrão (`ALLOW_SELF_REGISTRATION=false`), com rate limit por IP e emissão de JWT.
+- Campo opcional `personalization` no chat, com nome e memórias limitados, escapados e inseridos em contexto de sistema do servidor.
+- Migração `003_user_provider_keys.sql`, criptografia Fernet derivada de `KEY_ENCRYPTION_SECRET`, CRUD/teste por usuário e mascaramento das chaves.
+- Roteamento BYOK com precedência da chave do usuário, sem fallback global em falha; isenção de cota diária e manutenção do rate limit por minuto.
+- Proteção de SSRF para `base_url` do OpenAI-compatible.
+
+**Aceite F18:** testes de integração CRUD/isolamento, validação da personalização,
+contrato OpenAPI e revisão de logs/redação. Validação ponta a ponta com chaves
+reais é uma etapa operacional separada.
 
 ---
 

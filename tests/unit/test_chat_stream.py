@@ -146,6 +146,7 @@ async def test_stream_yields_data_chunks_then_done() -> None:
     assert events[-1].data == {
         "status": "complete",
         "finish_reason": "stop",
+        "key_source": "server",
         "usage": {
             "daily_limit": 10,
             "daily_remaining": 9,

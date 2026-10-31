@@ -210,17 +210,36 @@ async def ensure_admin(database: Database, settings: Settings, clock: Clock) -> 
     """
     try:
         async with database.write() as connection:
-            await connection.execute(
-                sql,
-                (
-                    ADMIN_ID,
-                    username,
-                    settings.admin_username.strip(),
-                    settings.admin_password_hash_value,
-                    now,
-                    now,
-                ),
-            )
+            cursor = await connection.execute("SELECT 1 FROM users WHERE id = ?", (ADMIN_ID,))
+            try:
+                admin_exists = await cursor.fetchone() is not None
+            finally:
+                await cursor.close()
+
+            if admin_exists:
+                await connection.execute(
+                    "UPDATE users SET username = ?, username_display = ?, "
+                    "password_hash = ?, updated_at = ? WHERE id = ?",
+                    (
+                        username,
+                        settings.admin_username.strip(),
+                        settings.admin_password_hash_value,
+                        now,
+                        ADMIN_ID,
+                    ),
+                )
+            else:
+                await connection.execute(
+                    sql,
+                    (
+                        ADMIN_ID,
+                        username,
+                        settings.admin_username.strip(),
+                        settings.admin_password_hash_value,
+                        now,
+                        now,
+                    ),
+                )
     except sqlite3.IntegrityError as exc:
         message = str(exc)
         if "only_one_admin_allowed" in message or "admin_must_be_protected" in message:

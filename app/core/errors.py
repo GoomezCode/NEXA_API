@@ -38,6 +38,14 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
     "test_users_disabled": ErrorSpec(
         403, "Usuários de teste desabilitados", "A criação de usuários de teste está desabilitada."
     ),
+    "registration_disabled": ErrorSpec(
+        403, "Cadastro desabilitado", "O cadastro público está desabilitado neste ambiente."
+    ),
+    "provider_keys_unavailable": ErrorSpec(
+        503,
+        "Chaves de provedor indisponíveis",
+        "O armazenamento criptografado de chaves não está configurado.",
+    ),
     "not_found": ErrorSpec(404, "Não encontrado", "O recurso solicitado não existe."),
     "method_not_allowed": ErrorSpec(
         405, "Método não permitido", "O método HTTP não é suportado por este recurso."

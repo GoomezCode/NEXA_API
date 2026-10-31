@@ -107,16 +107,23 @@ class AnthropicProvider:
         context_window=None,
     )
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        default_model: str | None = None,
+    ) -> None:
         self._settings = settings
         self.name = "anthropic"
         self.label = "Anthropic"
-        self.model = settings.anthropic_default_model
-        base = settings.anthropic_base_url.rstrip("/")
+        self.model = default_model or settings.anthropic_default_model
+        base = (base_url or settings.anthropic_base_url).rstrip("/")
         self._messages_url = f"{base}/v1/messages"
         self._count_url = f"{base}/v1/messages/count_tokens"
         self._models_url = f"{base}/v1/models"
-        self._api_key = settings.anthropic_api_key_value
+        self._api_key = api_key if api_key is not None else settings.anthropic_api_key_value
         self._version = settings.anthropic_version
 
     async def generate(

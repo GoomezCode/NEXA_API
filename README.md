@@ -2,10 +2,15 @@
 
 Backend do chat de IA via web, em **Python/FastAPI**.
 
-- **Versão em produção:** `1.1.0` (SRS v1.2, sem banco, provedor Ollama).
-- **Versão em especificação:** `2.0.0` (SRS v2.0): gateway multi-provedor,
-  compatibilidade OpenAI/Anthropic/Ollama e SQLite exclusivo para usuários.
-  F12–F16 já implementadas; F17 (hardening e release) segue planejada.
+- **Versão reportada pelo pacote:** `1.1.0` (`app.__version__`); a implementação
+  atual ainda não foi publicada nem etiquetada como release `2.0.0`.
+- **Funcionalidades no código:** gateway multi-provedor, compatibilidade
+  OpenAI/Anthropic/Ollama, NVIDIA NIM com chave e URL base configuráveis,
+  SQLite para contas, cadastro público configurável, personalização do chat e
+  chaves BYOK criptografadas.
+- **Estado de entrega:** critérios funcionais automatizados em boa parte; release
+  permanece pendente de hardening, validação operacional e atualização final dos
+  documentos de aceitação.
 
 ## Documentação
 
@@ -13,18 +18,18 @@ Backend do chat de IA via web, em **Python/FastAPI**.
 |---|---|
 | [`docs/srs-api-chat-ia-v1.md`](docs/srs-api-chat-ia-v1.md) | SRS v2.0 (especificação) |
 | [`docs/plano-implementacao-api-chat-ia-v1.md`](docs/plano-implementacao-api-chat-ia-v1.md) | Plano de implementação v2.0 |
-| [`docs/provedores-ia.md`](docs/provedores-ia.md) | Provedores, Model IDs, capacidades e fallback |
+| [`docs/provedores-ia.md`](docs/provedores-ia.md) | Provedores, Model IDs, fallback e BYOK |
 | [`docs/compatibilidade-apis-externas.md`](docs/compatibilidade-apis-externas.md) | Contratos OpenAI, Anthropic (Claude Code) e Ollama |
 | [`docs/database-sqlite.md`](docs/database-sqlite.md) | Schema, ADMIN inviolável, PRAGMAs e performance |
 | [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md) | Rastreabilidade CA-01..CA-47 |
-| [`docs/checklist-release.md`](docs/checklist-release.md) | Releases v1.1.0 e v2.0 planejado |
+| [`docs/checklist-release.md`](docs/checklist-release.md) | Histórico v1.1.0 e checklist v2.0 ainda aberto |
 
 ## Requisitos
 
 - Python 3.11+ (o CI usa 3.12)
 - `make` (opcional)
 - Docker + Docker Compose (opcional, para a imagem de produção)
-- Ollama local ou credenciais de um provedor de nuvem
+- Ollama local ou credenciais de um provedor de nuvem, como NVIDIA NIM
 
 ## Configuração
 
@@ -39,14 +44,15 @@ Gere o hash da senha do administrador:
 .venv/bin/python scripts/hash_password.py
 ```
 
-Em produção (`ENVIRONMENT=production`), `JWT_SECRET` precisa ter ao menos 32
-bytes e não pode ser um valor de exemplo. `UVICORN_WORKERS > 1` exige
-`REDIS_URL`.
+Em produção (`ENVIRONMENT=production`), `JWT_SECRET` e `KEY_ENCRYPTION_SECRET`
+precisam ter ao menos 32 caracteres e não podem ser valores de exemplo. O
+segredo de criptografia protege as chaves BYOK persistidas no SQLite. `UVICORN_WORKERS > 1`
+exige `REDIS_URL`.
 
-### Variáveis principais (v1.1.0)
+### Variáveis principais
 
 Todas vêm do ambiente ou de um `.env` na raiz (12-factor). O `.env.example`
-lista o conjunto completo, incluindo as variáveis planejadas da v2.0.
+lista as variáveis lidas pela implementação atual.
 
 | Variável | Padrão | Descrição |
 |---|---|---|
@@ -66,6 +72,14 @@ lista o conjunto completo, incluindo as variáveis planejadas da v2.0.
 | `MAX_MESSAGES_PER_REQUEST` | `100` | Máximo de mensagens por requisição (admin) |
 | `MAX_MESSAGE_CHARS` | `8000` | Máximo de caracteres por mensagem (admin) |
 | `ALLOW_CLIENT_SYSTEM_MESSAGES` | `false` | Permite `system` do admin |
+| `ALLOW_SELF_REGISTRATION` | `false` | Habilita `POST /auth/register` |
+| `REGISTRATION_DAILY_MESSAGES` | `100` | Cota diária padrão para contas cadastradas |
+| `REGISTRATION_RATE_PER_MIN` | `10` | Limite por minuto de contas cadastradas |
+| `REGISTRATION_MAX_ATTEMPTS_PER_IP_PER_HOUR` | `5` | Limite de tentativas de cadastro por IP |
+| `KEY_ENCRYPTION_SECRET` | vazio | Segredo de 32+ caracteres, obrigatório em produção para BYOK |
+| `PERSONALIZATION_MAX_MEMORIES` | `20` | Máximo de memórias por requisição |
+| `PERSONALIZATION_MAX_MEMORY_CHARS` | `4000` | Máximo de caracteres por memória |
+| `PERSONALIZATION_MAX_CHARS` | `6000` | Orçamento total de personalização |
 | `DEFAULT_SYSTEM_PROMPT` | vazio | Prompt de sistema padrão |
 | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Lockout de login |
 | `MAX_REQUEST_BODY_BYTES` | `2097152` | Teto do corpo (`413`) |
@@ -73,7 +87,7 @@ lista o conjunto completo, incluindo as variáveis planejadas da v2.0.
 | `CORS_ORIGINS` | `http://localhost:5173` | Origens permitidas |
 | `UVICORN_WORKERS` | `1` | Processos; `> 1` exige `REDIS_URL` |
 | `SHUTDOWN_TIMEOUT_SECONDS` | `30` | Prazo do graceful shutdown |
-| `AI_PROVIDER` | `ollama` | (v1) provedor ativo; descontinuado na v2 |
+| `AI_PROVIDER` | `ollama` | Compatibilidade com configuração legada do provedor Ollama |
 | `OLLAMA_URL` / `OLLAMA_MODEL` | `http://localhost:11434` / `llama3.1` | Endpoint e modelo local |
 | `AI_TIMEOUT_SECONDS` | `120` | Timeout de transporte |
 | `AI_STREAM_IDLE_TIMEOUT_SECONDS` | `60` | Inatividade no streaming |
@@ -83,17 +97,35 @@ lista o conjunto completo, incluindo as variáveis planejadas da v2.0.
 | `MODELS_CACHE_SECONDS` | `10` | TTL do catálogo |
 | `REDIS_URL` | vazio | Obrigatório com mais de um worker |
 
-### Variáveis planejadas (v2.0)
+### Variáveis de provedores e persistência
 
-As variáveis abaixo estão documentadas no SRS v2.0 e no `.env.example`, mas
-**não são lidas pela API v1.1.0** até a implementação das fases F12–F17.
+As variáveis abaixo configuram o gateway multi-provedor, o SQLite e as rotas de
+compatibilidade em execução. Consulte `.env.example` e os documentos específicos
+para os valores completos.
 
 | Grupo | Variáveis |
 |---|---|
 | Gateway | `AI_DEFAULT_MODEL`, `AI_MODEL_ALIASES`, `AI_ALLOWED_MODELS`, `AI_FALLBACK_CHAIN`, `AI_ENABLED_PROVIDERS`, `AI_MAX_RETRIES` |
-| Provedores | `OLLAMA_CLOUD_*`, `OPENAI_*`, `ANTHROPIC_*`, `GOOGLE_*`, `OPENAI_COMPAT_*` |
+| Provedores | `OLLAMA_CLOUD_*`, `OPENAI_*`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, `NVIDIA_DEFAULT_MODEL`, `ANTHROPIC_*`, `GOOGLE_*`, `OPENAI_COMPAT_*` |
 | SQLite | `DATABASE_URL`, `SQLITE_*`, `USERS_CACHE_*`, `ALLOW_TEST_USERS`, `TEST_USER_*`, `DB_*` |
 | Compatibilidade | `COMPAT_OPENAI_ENABLED`, `COMPAT_ANTHROPIC_ENABLED`, `COMPAT_OLLAMA_ENABLED`, `COMPAT_API_KEYS`, `COMPAT_API_KEY_RATE_PER_MIN`, `COMPAT_ALLOW_ANONYMOUS`, `COMPAT_OLLAMA_ALLOW_LOCALHOST` |
+
+Para usar NVIDIA NIM com uma chave global do servidor, configure as variáveis no
+`.env`. O endpoint hospedado padrão é `https://integrate.api.nvidia.com/v1`;
+`AI_ENABLED_PROVIDERS` deve incluir `nvidia` (ou ficar vazio para autodetecção).
+
+```dotenv
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_DEFAULT_MODEL=meta/llama-3.1-8b-instruct
+AI_ENABLED_PROVIDERS=ollama,nvidia
+AI_DEFAULT_MODEL=nvidia/meta/llama-3.1-8b-instruct
+```
+
+O catálogo NVIDIA da API é filtrado para mostrar os modelos documentados para
+chat completions. Para chaves BYOK, a URL base pode ser enviada junto da chave;
+se omitida, a API usa `NVIDIA_BASE_URL`. URLs personalizadas passam por
+validação HTTPS e DNS público para usuários comuns.
 
 ## Execução
 
@@ -112,15 +144,20 @@ Produção (mesma entrada usada no contêiner):
 .venv/bin/python -m app
 ```
 
-### Endpoints da versão atual (v1.1.0)
+### Endpoints nativos atuais
 
 | Método | Rota | Descrição |
 |---|---|---|
 | POST | `/api/v1/auth/login` | Login do administrador (JWT) |
+| POST | `/api/v1/auth/register` | Cadastro público, quando habilitado |
 | POST | `/api/v1/auth/guest` | Emite token de convidado (`gid` + `usage`) |
 | GET | `/api/v1/usage` | Limites e uso restante do chamador |
 | POST | `/api/v1/chat` | Chat (JSON ou SSE) |
-| GET | `/api/v1/models` | Catálogo do Ollama e modelo padrão |
+| GET | `/api/v1/models` | Catálogo multi-provedor (inclui origem da chave); NVIDIA lista apenas modelos LLM documentados para chat |
+| GET | `/api/v1/me/providers` | Lista chaves BYOK mascaradas |
+| PUT | `/api/v1/me/providers/{provider}` | Salva/atualiza uma chave BYOK; NVIDIA aceita URL base opcional |
+| DELETE | `/api/v1/me/providers/{provider}` | Remove uma chave BYOK |
+| POST | `/api/v1/me/providers/{provider}/test` | Testa uma chave salva |
 | GET | `/api/v1/admin/stats` | Estatísticas em memória (admin) |
 | GET | `/api/v1/admin/ai/status` | Status do provedor (admin) |
 | GET | `/api/v1/admin/guests` | Guests ativos (admin) |
@@ -129,11 +166,10 @@ Produção (mesma entrada usada no contêiner):
 | GET | `/health/ready` | Prontidão (inclui provedor) |
 | GET | `/docs` / `/redoc` | OpenAPI |
 
-### Endpoints planejados (v2.0)
+### Outros endpoints nativos e compatibilidade
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/v1/models` | Catálogo agregado multi-provedor |
 | POST | `/api/v1/admin/users` | Cria usuário de teste |
 | POST | `/api/v1/admin/users/bulk` | Cria usuários em lote |
 | GET | `/api/v1/admin/users` | Lista usuários com cursor/filtros |
@@ -150,6 +186,12 @@ Produção (mesma entrada usada no contêiner):
 | GET | `/api/tags` | Compatível Ollama |
 | POST | `/api/show` | Compatível Ollama |
 | GET | `/api/ps` | Compatível Ollama |
+
+Personalização opcional no chat (`display_name` e memórias ativas) é validada e
+transformada em contexto de sistema pela API. O uso BYOK não reduz a cota diária,
+mas continua sujeito ao limite por minuto. Chaves nunca são devolvidas em texto
+plano; configure `KEY_ENCRYPTION_SECRET` antes de habilitar esse recurso em
+produção.
 
 Todas as respostas trazem `X-Request-ID`; erros nativos seguem
 `application/problem+json` (SRS §3.8). As rotas de compatibilidade usam o
@@ -180,11 +222,10 @@ docker compose --profile ollama exec ollama ollama pull llama3.1
 docker compose --profile ollama exec ollama ollama list
 ```
 
-### SQLite na v2.0
+### SQLite e credenciais BYOK
 
-O SQLite de usuários (fase F13) está implementado. Ele guarda **somente** o
-ADMIN permanente, os usuários de teste e o controle de migrações — nenhum
-conteúdo de chat é persistido.
+O SQLite guarda o ADMIN permanente, usuários, chaves de provedor criptografadas
+e o controle de migrações — nenhum conteúdo de chat é persistido.
 
 - o arquivo padrão é `./data/nexa.db`, com diretório `0700` e arquivo `0600`;
 - o compose monta o volume nomeado `nexa-data` em `/app/data`, o único caminho
@@ -345,25 +386,23 @@ tests/
 └── e2e/          # Claude Code/SSE (v2)
 ```
 
-## Fases
+## Estado de implementação
 
 **Concluídas (v1.x):** F0 Fundação, F1 Autenticação, F2 Provedores de IA,
 F3 Cotas, F4 Chat JSON, F5 Streaming SSE, F6 Administração, F7 Hardening,
 F8 Observabilidade, F9 Empacotamento, F10 Conformidade e F11 Catálogo de modelos.
 
-**Concluídas (v2.0):** F12 Gateway multi-provedor, F13 SQLite de usuários,
-F14 Compatibilidade OpenAI, F15 Compatibilidade Anthropic/Claude Code e
-F16 Compatibilidade Ollama.
+**Implementadas no código:** F12 Gateway multi-provedor, F13 SQLite de usuários,
+F14 Compatibilidade OpenAI, F15 Compatibilidade Anthropic/Claude Code, F16
+Compatibilidade Ollama e F18 Cadastro/personalização/BYOK.
 
-**Planejadas (v2.0):** F17 Hardening/release `v2.0.0`.
+**Pendentes antes do release:** F17 Hardening e aceite operacional; a versão do
+pacote ainda é `1.1.0` e não foi criada/tagueada uma release `2.0.0`.
 
 ## Release
 
-A entrega `v1.1.0` (API reporta `1.1.0`) acrescenta o catálogo `GET /models` e a
-escolha de modelo por requisição de chat (SRS v1.2), com CA-01..CA-25 rastreados
-em [`docs/matriz-ca-testes.md`](docs/matriz-ca-testes.md) e a rodada manual com
-Ollama real em
+O histórico `v1.1.0` e sua rodada manual estão em
 [`docs/aceitacao-manual-2026-10-28.md`](docs/aceitacao-manual-2026-10-28.md).
-
-A entrega `v2.0.0` está especificada no SRS v2.0 e no plano v2.0; o checklist
-planejado está em [`docs/checklist-release.md`](docs/checklist-release.md).
+O checklist de release v2.0 permanece aberto em
+[`docs/checklist-release.md`](docs/checklist-release.md); mudanças no código e
+passagem da suíte, por si só, não equivalem a uma publicação.

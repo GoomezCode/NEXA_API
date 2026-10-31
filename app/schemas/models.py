@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -46,6 +47,7 @@ class ProviderModels(BaseModel):
     available: bool = Field(description="Se o catálogo respondeu nesta consulta.")
     default_model: str = Field(description="Modelo padrão do provedor.")
     models: list[ModelEntry] = Field(description="Modelos encontrados, ordenados por nome.")
+    key_source: Literal["server", "user"] = "server"
 
 
 class ModelIndexEntry(BaseModel):
@@ -57,6 +59,7 @@ class ModelIndexEntry(BaseModel):
     provider: str
     name: str
     selectable: bool
+    key_source: Literal["server", "user"] = "server"
 
 
 class ModelsResponse(BaseModel):

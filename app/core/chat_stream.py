@@ -218,6 +218,9 @@ async def stream_events(session: StreamSession) -> AsyncIterator[str]:
         done = StreamDone(
             finish_reason=finish_reason,
             model_id=model_id if routed else None,
+            key_source="user"
+            if session.resolution is not None and session.resolution.user_key
+            else "server",
             provider_usage=provider_usage,
             usage=session.usage,
         )
@@ -280,6 +283,8 @@ async def _pump(
 
 async def _refund(session: StreamSession) -> None:
     """Devolve 1 unidade de cota (gid e IP) ao guest."""
+    if session.resolution is not None and session.resolution.user_key:
+        return
     await session.store.refund(role=session.role, subject=session.subject, ip=session.ip)
 
 

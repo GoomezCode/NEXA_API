@@ -118,7 +118,9 @@ def test_production_rejects_example_secret() -> None:
 
 
 def test_production_accepts_strong_secret() -> None:
-    settings = make_settings(environment="production", jwt_secret="a" * 48)
+    settings = make_settings(
+        environment="production", jwt_secret="a" * 48, key_encryption_secret="b" * 48
+    )
     assert settings.is_production is True
 
 
@@ -297,12 +299,14 @@ def test_production_rejects_anonymous_compat() -> None:
         make_settings(
             environment="production",
             jwt_secret="z" * 40,
+            key_encryption_secret="b" * 48,
             compat_allow_anonymous=True,
         )
     with pytest.raises(ValidationError, match="proibidos em produção"):
         make_settings(
             environment="production",
             jwt_secret="z" * 40,
+            key_encryption_secret="b" * 48,
             compat_ollama_allow_localhost=True,
         )
 
@@ -311,6 +315,7 @@ def test_production_allows_compat_with_api_keys() -> None:
     settings = make_settings(
         environment="production",
         jwt_secret="z" * 40,
+        key_encryption_secret="b" * 48,
         compat_api_keys="nxa_live_ok",
     )
 

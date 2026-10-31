@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.security import Role
 from app.schemas.usage import UsageInfo
@@ -20,6 +21,43 @@ class LoginRequest(BaseModel):
 
     username: str = Field(min_length=1, max_length=256)
     password: str = Field(min_length=1, max_length=1024, repr=False)
+
+
+class RegisterRequest(BaseModel):
+    """Cadastro público opcional."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "username": "marina",
+                "email": "marina@example.com",
+                "password": "senha-segura",
+            }
+        },
+    )
+
+    username: str = Field(min_length=3, max_length=64)
+    email: str | None = Field(default=None, max_length=320)
+    password: str = Field(min_length=8, max_length=128, repr=False)
+
+    @field_validator("username")
+    @classmethod
+    def _validate_username(cls, value: str) -> str:
+        value = value.strip()
+        if not re.fullmatch(r"[a-zA-Z0-9._-]{3,64}", value):
+            raise ValueError("use 3-64 caracteres: letras, números, ponto, hífen ou sublinhado")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def _validate_email(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        value = value.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+            raise ValueError("e-mail inválido")
+        return value
 
 
 class TokenResponse(BaseModel):
@@ -74,4 +112,4 @@ class GuestTokenResponse(TokenResponse):
     usage: UsageInfo
 
 
-__all__ = ["GuestTokenResponse", "LoginRequest", "TokenResponse"]
+__all__ = ["GuestTokenResponse", "LoginRequest", "RegisterRequest", "TokenResponse"]

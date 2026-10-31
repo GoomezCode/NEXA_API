@@ -31,6 +31,7 @@ from app.ai.factory import (
 )
 from app.ai.fake import FakeProvider
 from app.ai.google import GoogleProvider
+from app.ai.nvidia import NvidiaProvider
 from app.ai.ollama import OllamaProvider
 from app.ai.openai import OpenAIProvider
 from app.ai.openai_compatible import OpenAICompatibleProvider
@@ -51,6 +52,7 @@ __all__ = [
     "ModelInfo",
     "ModelNotAllowed",
     "ModelNotFound",
+    "NvidiaProvider",
     "OllamaProvider",
     "OpenAICompatibleProvider",
     "OpenAIProvider",

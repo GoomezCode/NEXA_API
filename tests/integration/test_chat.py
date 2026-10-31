@@ -439,6 +439,7 @@ def test_guest_stream_success(client: TestClient, provider: FakeProvider) -> Non
         "status": "complete",
         "finish_reason": "stop",
         "model_id": "fake/fake-model",
+            "key_source": "server",
         "provider_usage": {"prompt_tokens": 11, "completion_tokens": 7},
         "usage": {
             "daily_limit": 10,

@@ -2,7 +2,8 @@
 
 > Documento de apoio ao [SRS v2.0](srs-api-chat-ia-v1.md) e ao
 > [plano de implementação v2.0](plano-implementacao-api-chat-ia-v1.md).
-> **Estado:** planejado para as fases F12–F17; a API em produção permanece na v1.1.0.
+> **Estado do código:** gateway multi-provedor e BYOK implementados. O pacote ainda
+> reporta `1.1.0`; não há release `2.0.0` publicada/tagueada.
 
 ## 1. Objetivo
 
@@ -27,6 +28,7 @@ cliente → NEXA API → ProviderRouter → adapter → provedor
 | Ollama local | `ollama` | `POST {OLLAMA_URL}/api/chat` (NDJSON) | opcional (`OLLAMA_API_KEY`) | `GET /api/tags` |
 | Ollama Cloud | `ollama_cloud` | `POST {OLLAMA_CLOUD_URL}/api/chat` (NDJSON) | `Authorization: Bearer` | `GET /api/tags` |
 | OpenAI | `openai` | `POST {OPENAI_BASE_URL}/chat/completions` (SSE) | `Authorization: Bearer` | `GET /models` |
+| NVIDIA NIM | `nvidia` | `POST {NVIDIA_BASE_URL}/chat/completions` (SSE) | `Authorization: Bearer` | `GET /models` |
 | Anthropic | `anthropic` | `POST {ANTHROPIC_BASE_URL}/v1/messages` (SSE) | `x-api-key` | `GET /v1/models` |
 | Google Gemini | `google` | `POST {GOOGLE_BASE_URL}/v1beta/models/{model}:generateContent` e `:streamGenerateContent?alt=sse` | `x-goog-api-key` | `GET /v1beta/models` |
 | OpenAI-compatible | `openai_compatible` | `POST {OPENAI_COMPAT_BASE_URL}/chat/completions` (SSE) | `Authorization: Bearer` | `GET /models` |
@@ -34,6 +36,25 @@ cliente → NEXA API → ProviderRouter → adapter → provedor
 
 O provedor `openai_compatible` cobre Groq, OpenRouter, DeepSeek, Azure OpenAI,
 vLLM, LM Studio, Together e qualquer serviço que implemente o contrato OpenAI.
+
+### NVIDIA NIM
+
+A API hospedada NVIDIA usa o protocolo OpenAI-compatible. Configure `NVIDIA_API_KEY`
+com uma chave do NVIDIA API Catalog; o endpoint padrão é
+`https://integrate.api.nvidia.com/v1`. `NVIDIA_BASE_URL` pode apontar para outra
+instância NIM compatível, e `NVIDIA_DEFAULT_MODEL` define o modelo padrão.
+A NEXA filtra esse catálogo para exibir apenas os modelos LLM documentados pela
+NVIDIA para chat completions. O endpoint genérico também pode listar NIMs de
+tarefas especializadas.
+
+Para habilitar a chave do servidor, defina `NVIDIA_API_KEY` e inclua `nvidia`
+em `AI_ENABLED_PROVIDERS` (ou deixe a lista vazia para autodetecção). Para usar
+NVIDIA como padrão, configure `AI_DEFAULT_MODEL=nvidia/meta/llama-3.1-8b-instruct`.
+
+Para BYOK, usuários podem salvar uma chave e, opcionalmente, uma URL base NVIDIA
+NIM no Monitor. Se a URL ficar vazia, a NEXA usa o endpoint hospedado padrão. URLs
+personalizadas passam por validação HTTPS e DNS público para evitar acesso a redes
+privadas. O campo de modelo é opcional e pode receber um ID publicado no catálogo.
 
 ## 3. Model ID, aliases e allowlist
 
@@ -49,6 +70,7 @@ Exemplos:
 ollama/llama3.1
 ollama_cloud/qwen3-coder:480b
 openai/gpt-4o-mini
+nvidia/meta/llama-3.1-8b-instruct
 anthropic/claude-sonnet-4-5
 google/gemini-2.5-flash
 openai_compatible/llama-3.3-70b-versatile
@@ -239,6 +261,32 @@ Metadados por modelo: `size_bytes`, `modified_at`, `family`, `parameter_size`,
 - Consultar o catálogo **não** consome cota.
 - Falha de um provedor: `available=false` e catálogo dos demais preservado.
 - Falha total: `503 provider_unavailable`.
+
+### 6.1 Chaves próprias (BYOK)
+
+Contas `user` e `admin` podem guardar uma chave por provedor em
+`/api/v1/me/providers`. A chave é criptografada com Fernet antes da gravação no
+SQLite; as respostas expõem somente os últimos quatro caracteres e metadados.
+`guest` não pode listar, testar, salvar ou remover chaves.
+
+| Método | Rota | Ação |
+|---|---|---|
+| GET | `/api/v1/me/providers` | Lista provedores configurados com chave mascarada |
+| PUT | `/api/v1/me/providers/{provider}` | Cria ou substitui a chave do provedor |
+| DELETE | `/api/v1/me/providers/{provider}` | Remove a chave |
+| POST | `/api/v1/me/providers/{provider}/test` | Executa verificação de saúde com a chave salva |
+
+Configure `KEY_ENCRYPTION_SECRET` com pelo menos 32 caracteres aleatórios. A
+API recusa inicialização em produção se o segredo estiver ausente ou for fraco.
+Para `openai_compatible`, usuários comuns só podem cadastrar `base_url` HTTPS
+resolvida para IPs públicos; administradores podem usar endpoints privados de
+infraestrutura controlada.
+
+Ao resolver o chat, uma chave do usuário tem precedência para o provedor/modelo
+selecionado e não cai silenciosamente para a chave global se falhar. O evento
+`done` e o catálogo de modelos indicam `key_source: user|server`. Uso BYOK não
+consome cota diária, mas mantém rate limit por minuto. Erros e logs não incluem
+o segredo.
 
 ## 7. Saúde
 

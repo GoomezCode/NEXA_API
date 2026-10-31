@@ -54,6 +54,7 @@ class ResolvedModel:
     model: str
     capabilities: Capabilities
     context_window: int | None = None
+    user_key: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +195,7 @@ class ProviderRouter:
         json_mode: bool = False,
         request_id: str | None = None,
         enforce_allowlist: bool = True,
+        provider_override: AIProvider | None = None,
     ) -> ResolvedModel:
         """Resolve o Model ID e valida allowlist/capacidades antes da cota."""
         if requested is None:
@@ -205,6 +207,13 @@ class ProviderRouter:
             provider_name, model_name = self._split(requested_id)
 
         state = self._providers.get(provider_name)
+        if provider_override is not None:
+            state = _ProviderState(
+                name=provider_name,
+                label=getattr(provider_override, "label", provider_name),
+                provider=provider_override,
+                catalog=ModelCatalog(provider_override, self._clock, ttl_seconds=0),
+            )
         if state is None:
             raise ModelNotFound(self._not_found_message(requested_id))
 
@@ -241,6 +250,7 @@ class ProviderRouter:
             model=resolved_name,
             capabilities=capabilities,
             context_window=capabilities.context_window,
+            user_key=provider_override is not None,
         )
 
     def is_selectable(self, provider_name: str, model_name: str) -> bool:
@@ -367,6 +377,8 @@ class ProviderRouter:
         request_id: str | None,
     ) -> list[ResolvedModel]:
         candidates = [primary]
+        if primary.user_key:
+            return candidates
         seen = {primary.model_id}
         fallbacks = 0
         for entry in self._fallback_chain:

@@ -275,7 +275,7 @@ def test_database_status_and_health(client: TestClient) -> None:
     body = status.json()
     assert body["status"] == "ok"
     assert body["wal"] is True
-    assert body["migration_version"] == 2
+    assert body["migration_version"] == 3
     assert body["users_total"] == 2
     assert body["test_users_total"] == 1
     assert body["size_bytes"] > 0
@@ -365,4 +365,6 @@ def test_database_has_no_chat_tables(settings: Settings, client: TestClient) -> 
     finally:
         connection.close()
 
-    assert {row[0] for row in rows} == {"users", "schema_migrations"}
+    assert {row[0] for row in rows} == {
+        "users", "schema_migrations", "user_provider_keys"
+    }

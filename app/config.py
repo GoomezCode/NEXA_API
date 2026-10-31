@@ -46,6 +46,7 @@ KNOWN_PROVIDERS = frozenset(
         "ollama",
         "ollama_cloud",
         "openai",
+        "nvidia",
         "anthropic",
         "google",
         "openai_compatible",
@@ -132,6 +133,11 @@ class Settings(BaseSettings):
     openai_default_model: str = "gpt-4o-mini"
     openai_org_id: str | None = None
 
+    # --- NVIDIA NIM ---------------------------------------------------------
+    nvidia_api_key: SecretStr | None = None
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_default_model: str = "meta/llama-3.1-8b-instruct"
+
     # --- Anthropic ----------------------------------------------------------
     anthropic_api_key: SecretStr | None = None
     anthropic_base_url: str = "https://api.anthropic.com"
@@ -161,6 +167,7 @@ class Settings(BaseSettings):
 
     # --- SQLite de usuários (v2.0) -----------------------------------------
     database_url: str = DEFAULT_DATABASE_URL
+    key_encryption_secret: SecretStr | None = None
     sqlite_wal: bool = True
     sqlite_synchronous: Literal["NORMAL", "FULL"] = "NORMAL"
     sqlite_busy_timeout_ms: int = Field(default=5000, ge=0)
@@ -170,6 +177,13 @@ class Settings(BaseSettings):
     users_cache_ttl_seconds: float = Field(default=30.0, ge=0)
     users_cache_max_entries: int = Field(default=10000, ge=1)
     allow_test_users: bool = True
+    allow_self_registration: bool = False
+    registration_daily_messages: int = Field(default=100, ge=0)
+    registration_rate_per_min: int = Field(default=10, ge=1)
+    registration_max_attempts_per_ip_per_hour: int = Field(default=5, ge=1)
+    personalization_max_memories: int = Field(default=20, ge=0, le=50)
+    personalization_max_memory_chars: int = Field(default=4000, ge=1)
+    personalization_max_chars: int = Field(default=6000, ge=1)
     test_user_default_daily_messages: int = Field(default=100, ge=0)
     test_user_default_rate_per_min: int = Field(default=10, ge=1)
     test_user_ttl_hours: int = Field(default=168, ge=0)
@@ -352,6 +366,14 @@ class Settings(BaseSettings):
             )
         if secret.strip().lower() in _WEAK_SECRETS:
             raise ValueError("JWT_SECRET usa um valor de exemplo/fraco em produção")
+        if (
+            self.key_encryption_secret is None
+            or len(self.key_encryption_secret.get_secret_value()) < 32
+        ):
+            raise ValueError("KEY_ENCRYPTION_SECRET deve ter ao menos 32 caracteres em produção")
+        encryption_secret = self.key_encryption_secret.get_secret_value().strip().lower()
+        if encryption_secret in _WEAK_SECRETS:
+            raise ValueError("KEY_ENCRYPTION_SECRET usa um valor de exemplo/fraco em produção")
 
     def _check_workers(self) -> None:
         if self.uvicorn_workers > 1 and not self.redis_url:
@@ -403,6 +425,7 @@ class Settings(BaseSettings):
             "OLLAMA_URL": self.ollama_url,
             "OLLAMA_CLOUD_URL": self.ollama_cloud_url,
             "OPENAI_BASE_URL": self.openai_base_url,
+            "NVIDIA_BASE_URL": self.nvidia_base_url,
             "ANTHROPIC_BASE_URL": self.anthropic_base_url,
             "GOOGLE_BASE_URL": self.google_base_url,
         }
@@ -457,6 +480,10 @@ class Settings(BaseSettings):
     @property
     def openai_api_key_value(self) -> str | None:
         return self._secret(self.openai_api_key)
+
+    @property
+    def nvidia_api_key_value(self) -> str | None:
+        return self._secret(self.nvidia_api_key)
 
     @property
     def anthropic_api_key_value(self) -> str | None:

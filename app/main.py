@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.ai import AIProvider, build_registry, provider_label
 from app.ai.router import ProviderRouter
-from app.api import admin, auth, chat, models, system, usage, users
+from app.api import admin, auth, chat, models, provider_keys, system, usage, users
 from app.compat.anthropic import router as anthropic_compat_router
 from app.compat.errors import CompatApiError, compat_error_handler
 from app.compat.ollama import router as ollama_compat_router
@@ -58,7 +58,7 @@ ALLOWED_HEADERS = [
     "anthropic-version",
     "anthropic-beta",
 ]
-ALLOWED_METHODS = ["GET", "POST", "OPTIONS"]
+ALLOWED_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 
 logger = get_logger("nexa.app")
 
@@ -171,6 +171,11 @@ def create_app(
         limit=resolved.login_max_attempts,
         window_seconds=resolved.login_lock_minutes * 60,
     )
+    app.state.registration_limiter = SlidingWindowLimiter(
+        resolved_clock,
+        limit=resolved.registration_max_attempts_per_ip_per_hour,
+        window_seconds=3600,
+    )
     app.state.guest_token_limiter = SlidingWindowLimiter(
         resolved_clock,
         limit=resolved.guest_tokens_per_ip_per_hour,
@@ -181,6 +186,9 @@ def create_app(
         resolved_clock,
         limit=resolved.compat_api_key_rate_per_min,
         window_seconds=60,
+    )
+    app.state.provider_key_limiter = SlidingWindowLimiter(
+        resolved_clock, limit=10, window_seconds=60
     )
 
     # Pilha (de dentro para fora): ContentType → BodyLimit → CORS → RequestContext.
@@ -212,6 +220,7 @@ def create_app(
     app.include_router(models.router)
     app.include_router(admin.router)
     app.include_router(users.router)
+    app.include_router(provider_keys.router)
     if resolved.compat_openai_enabled:
         app.include_router(openai_compat_router)
     if resolved.compat_anthropic_enabled:

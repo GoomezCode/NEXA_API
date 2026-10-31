@@ -376,7 +376,9 @@ async def test_request_context_generates_request_id() -> None:
 
 
 async def test_request_context_adds_hsts_in_production() -> None:
-    settings = make_settings(environment="production", jwt_secret="z" * 40)
+    settings = make_settings(
+        environment="production", jwt_secret="z" * 40, key_encryption_secret="k" * 48
+    )
 
     async def downstream(scope: Scope, receive: Receive, send: Send) -> None:
         await send({"type": "http.response.start", "status": 200, "headers": []})
