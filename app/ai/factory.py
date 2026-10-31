@@ -13,6 +13,7 @@ from app.ai.anthropic import AnthropicProvider
 from app.ai.base import AIProvider, ProviderConfigurationError
 from app.ai.fake import FakeProvider
 from app.ai.google import GoogleProvider
+from app.ai.nvidia import NvidiaProvider
 from app.ai.ollama import OllamaProvider
 from app.ai.openai import OpenAIProvider
 from app.ai.openai_compatible import OpenAICompatibleProvider
@@ -81,7 +82,7 @@ def _build_openai(settings: Settings) -> AIProvider:
 
 def _build_nvidia(settings: Settings) -> AIProvider:
     api_key = _require(settings.nvidia_api_key_value, "NVIDIA_API_KEY", "nvidia")
-    return OpenAIProvider(
+    return NvidiaProvider(
         settings,
         name="nvidia",
         base_url=settings.nvidia_base_url,
@@ -137,11 +138,11 @@ def build_user_provider(
             label="OpenAI",
         )
     if provider == "nvidia":
-        return OpenAIProvider(
+        return NvidiaProvider(
             settings,
             name="nvidia",
             api_key=api_key,
-            base_url=settings.nvidia_base_url,
+            base_url=base_url or settings.nvidia_base_url,
             default_model=default_model or settings.nvidia_default_model,
             label="NVIDIA NIM",
         )

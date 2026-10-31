@@ -43,15 +43,18 @@ A API hospedada NVIDIA usa o protocolo OpenAI-compatible. Configure `NVIDIA_API_
 com uma chave do NVIDIA API Catalog; o endpoint padrão é
 `https://integrate.api.nvidia.com/v1`. `NVIDIA_BASE_URL` pode apontar para outra
 instância NIM compatível, e `NVIDIA_DEFAULT_MODEL` define o modelo padrão.
-O catálogo também lista os modelos liberados para a chave.
+A NEXA filtra esse catálogo para exibir apenas os modelos LLM documentados pela
+NVIDIA para chat completions. O endpoint genérico também pode listar NIMs de
+tarefas especializadas.
 
 Para habilitar a chave do servidor, defina `NVIDIA_API_KEY` e inclua `nvidia`
 em `AI_ENABLED_PROVIDERS` (ou deixe a lista vazia para autodetecção). Para usar
-NVIDIA como padrão, configure `AI_DEFAULT_MODEL=nvidia/nvidia/nemotron-3.5-super-120b-a12b`.
+NVIDIA como padrão, configure `AI_DEFAULT_MODEL=nvidia/meta/llama-3.1-8b-instruct`.
 
-Para BYOK, usuários podem salvar uma chave NVIDIA NIM no Monitor. O endpoint vem
-da configuração do servidor, sem aceitar URL fornecida pelo usuário. O campo de
-modelo é opcional e pode receber o ID publicado pelo catálogo NVIDIA.
+Para BYOK, usuários podem salvar uma chave e, opcionalmente, uma URL base NVIDIA
+NIM no Monitor. Se a URL ficar vazia, a NEXA usa o endpoint hospedado padrão. URLs
+personalizadas passam por validação HTTPS e DNS público para evitar acesso a redes
+privadas. O campo de modelo é opcional e pode receber um ID publicado no catálogo.
 
 ## 3. Model ID, aliases e allowlist
 
@@ -67,7 +70,7 @@ Exemplos:
 ollama/llama3.1
 ollama_cloud/qwen3-coder:480b
 openai/gpt-4o-mini
-nvidia/nvidia/nemotron-3.5-super-120b-a12b
+nvidia/meta/llama-3.1-8b-instruct
 anthropic/claude-sonnet-4-5
 google/gemini-2.5-flash
 openai_compatible/llama-3.3-70b-versatile

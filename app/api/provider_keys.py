@@ -100,12 +100,9 @@ async def save_provider_key(
     await _allow_request(request, user)
     provider = _provider(provider)
     base_url = payload.base_url
-    if provider == "nvidia":
-        if base_url is not None:
-            raise ApiError("validation_error")
-    elif provider == "openai_compatible":
+    if provider in {"nvidia", "openai_compatible"}:
         base_url = _validate_user_base_url(base_url, user)
-        if not base_url or not payload.default_model:
+        if provider == "openai_compatible" and (not base_url or not payload.default_model):
             raise ApiError("validation_error")
     elif base_url is not None:
         raise ApiError("validation_error")

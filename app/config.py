@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     # --- NVIDIA NIM ---------------------------------------------------------
     nvidia_api_key: SecretStr | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nvidia_default_model: str = "nvidia/nemotron-3.5-super-120b-a12b"
+    nvidia_default_model: str = "meta/llama-3.1-8b-instruct"
 
     # --- Anthropic ----------------------------------------------------------
     anthropic_api_key: SecretStr | None = None
