@@ -82,3 +82,21 @@ def test_system_message_may_appear_before_user() -> None:
         }
     )
     assert request.messages[0].role == "system"
+
+
+def test_personalization_skill_schema_rejects_extra_fields() -> None:
+    from app.schemas.chat import PersonalizationInput
+
+    with pytest.raises(ValidationError):
+        PersonalizationInput.model_validate(
+            {"skills": [{"name": "x", "instructions": "y", "extra": True}]}
+        )
+
+
+def test_personalization_skill_schema_enforces_bounds() -> None:
+    from app.schemas.chat import PersonalizationInput
+
+    with pytest.raises(ValidationError):
+        PersonalizationInput.model_validate({"skills": [{"name": "", "instructions": "y"}]})
+    with pytest.raises(ValidationError):
+        PersonalizationInput.model_validate({"skills": [{"name": "x", "instructions": "y" * 4001}]})

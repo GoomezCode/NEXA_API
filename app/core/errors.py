@@ -66,6 +66,9 @@ ERROR_CATALOG: dict[str, ErrorSpec] = {
         415, "Tipo de mídia não suportado", "Envie o corpo como application/json."
     ),
     "validation_error": ErrorSpec(422, "Requisição inválida", "Um ou mais campos são inválidos."),
+    "skills_limit_exceeded": ErrorSpec(
+        422, "Limite de skills excedido", "O número de skills excede o limite do perfil."
+    ),
     "model_not_found": ErrorSpec(
         422, "Modelo não encontrado", "O Model ID informado não existe no provedor."
     ),

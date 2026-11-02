@@ -184,6 +184,7 @@ class Settings(BaseSettings):
     personalization_max_memories: int = Field(default=20, ge=0, le=50)
     personalization_max_memory_chars: int = Field(default=4000, ge=1)
     personalization_max_chars: int = Field(default=6000, ge=1)
+    personalization_max_skill_chars: int = Field(default=12000, ge=1)
     test_user_default_daily_messages: int = Field(default=100, ge=0)
     test_user_default_rate_per_min: int = Field(default=10, ge=1)
     test_user_ttl_hours: int = Field(default=168, ge=0)

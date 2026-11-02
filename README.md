@@ -93,6 +93,7 @@ lista as variáveis lidas pela implementação atual.
 | `PERSONALIZATION_MAX_MEMORIES` | `20` | Máximo de memórias por requisição |
 | `PERSONALIZATION_MAX_MEMORY_CHARS` | `4000` | Máximo de caracteres por memória |
 | `PERSONALIZATION_MAX_CHARS` | `6000` | Orçamento total de personalização |
+| `PERSONALIZATION_MAX_SKILL_CHARS` | `12000` | Teto de caracteres para skills (guest/user: 6.000; admin: até este valor) |
 | `DEFAULT_SYSTEM_PROMPT` | vazio | Prompt de sistema padrão |
 | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Lockout de login |
 | `MAX_REQUEST_BODY_BYTES` | `33554432` | Teto do corpo (`413`), comporta imagens de até 20 MB em base64 |
