@@ -18,7 +18,7 @@ class ContextMessage(Protocol):
     def role(self) -> MessageRole: ...
 
     @property
-    def content(self) -> str: ...
+    def content(self) -> object: ...
 
 
 def context_errors(
@@ -45,7 +45,8 @@ def context_errors(
         )
 
     for index, message in enumerate(messages):
-        if len(message.content) > max_chars:
+        text_content = getattr(message, "text_content", message.content)
+        if isinstance(text_content, str) and len(text_content) > max_chars:
             errors.append(
                 ValidationErrorItem(
                     field=f"messages.{index}.content",

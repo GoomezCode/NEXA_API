@@ -2,13 +2,53 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+import base64
+import binascii
+from typing import Annotated, Any, Literal
 from unicodedata import category
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from app.ai.base import FinishReason, MessageRole
+from app.ai.base import FinishReason, ImageData, MessageRole
 from app.schemas.usage import UsageInfo
+
+
+class TextContentPart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["text"]
+    text: str = Field(max_length=8000)
+
+
+class ImageContentPart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["image"]
+    media_type: Literal["image/png", "image/jpeg", "image/webp", "image/gif"]
+    data: str = Field(min_length=1, max_length=28_000_000, description="Base64 sem prefixo data:.")
+
+    @field_validator("data")
+    @classmethod
+    def _valid_base64(cls, value: str, info: ValidationInfo) -> str:
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("imagem deve estar em base64 válido") from exc
+        if len(decoded) > 20 * 1024 * 1024:
+            raise ValueError("imagem pode ter no máximo 20 MB")
+        media_type = info.data.get("media_type")
+        signatures = {
+            "image/png": decoded.startswith(b"\x89PNG\r\n\x1a\n"),
+            "image/jpeg": decoded.startswith(b"\xff\xd8\xff"),
+            "image/webp": len(decoded) >= 12
+            and decoded[:4] == b"RIFF"
+            and decoded[8:12] == b"WEBP",
+            "image/gif": decoded.startswith((b"GIF87a", b"GIF89a")),
+        }
+        if not isinstance(media_type, str) or not signatures.get(media_type, False):
+            raise ValueError("o conteúdo não corresponde ao media_type declarado")
+        return value
+
+
+ChatContentPart = Annotated[TextContentPart | ImageContentPart, Field(discriminator="type")]
 
 
 class ChatMessageInput(BaseModel):
@@ -17,15 +57,43 @@ class ChatMessageInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     role: MessageRole
-    content: str
+    content: str | list[ChatContentPart]
     tool_call_id: str | None = Field(default=None, description="ID da chamada respondida.")
 
     @field_validator("content")
     @classmethod
-    def _content_must_not_be_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("não pode ser vazio")
+    def _content_must_not_be_blank(
+        cls, value: str | list[ChatContentPart]
+    ) -> str | list[ChatContentPart]:
+        if isinstance(value, str):
+            if not value.strip():
+                raise ValueError("não pode ser vazio")
+            return value
+        if not value or len(value) > 9:
+            raise ValueError("a mensagem pode ter no máximo 9 partes")
+        if not any(
+            part.type == "image" or (part.type == "text" and part.text.strip()) for part in value
+        ):
+            raise ValueError("conteúdo deve incluir texto ou imagem")
+        if sum(part.type == "image" for part in value) > 4:
+            raise ValueError("no máximo 4 imagens por mensagem")
         return value
+
+    @property
+    def text_content(self) -> str:
+        if isinstance(self.content, str):
+            return self.content
+        return "\n".join(part.text for part in self.content if part.type == "text")
+
+    @property
+    def images(self) -> tuple[ImageData, ...]:
+        if isinstance(self.content, str):
+            return ()
+        return tuple(
+            ImageData(media_type=part.media_type, data=part.data)
+            for part in self.content
+            if part.type == "image"
+        )
 
 
 class ToolFunction(BaseModel):

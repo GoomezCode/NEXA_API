@@ -79,6 +79,8 @@ def _split_system(
         parts: list[dict[str, Any]] = []
         if message.content:
             parts.append({"text": message.content})
+        for image in message.images:
+            parts.append({"inline_data": {"mime_type": image.media_type, "data": image.data}})
         for call in message.tool_calls:
             parts.append({"functionCall": {"name": call.name, "args": dict(call.arguments)}})
             tool_names[call.id] = call.name
@@ -488,7 +490,8 @@ def parse_models(data: object) -> list[ModelInfo]:
             continue
         name = name.removeprefix("models/")
         methods = item.get("supportedGenerationMethods")
-        if isinstance(methods, list) and "generateContent" not in methods:
+        # Só exponha modelos que o catálogo do Google declara compatíveis com chat.
+        if not isinstance(methods, list) or "generateContent" not in methods:
             continue
 
         context_window = _as_int(item.get("inputTokenLimit"))

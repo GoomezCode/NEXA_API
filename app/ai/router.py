@@ -223,7 +223,7 @@ class ProviderRouter:
         model_info: ModelInfo | None = None
         resolved_name = model_name
         trusted_default = requested is None and model_name == state.provider.model
-        if not trusted_default:
+        if not trusted_default or has_images:
             model_info = await state.catalog.resolve_with_info(
                 model_name,
                 request_id=request_id,

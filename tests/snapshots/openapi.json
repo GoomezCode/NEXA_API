@@ -825,8 +825,32 @@
         "description": "Mensagem enviada pelo cliente.",
         "properties": {
           "content": {
-            "title": "Content",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "discriminator": {
+                    "mapping": {
+                      "image": "#/components/schemas/ImageContentPart",
+                      "text": "#/components/schemas/TextContentPart"
+                    },
+                    "propertyName": "type"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TextContentPart"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImageContentPart"
+                    }
+                  ]
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Content"
           },
           "role": {
             "enum": [
@@ -1368,6 +1392,40 @@
           "request_id"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "ImageContentPart": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "description": "Base64 sem prefixo data:.",
+            "maxLength": 28000000,
+            "minLength": 1,
+            "title": "Data",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp",
+              "image/gif"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "type": {
+            "const": "image",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "media_type",
+          "data"
+        ],
+        "title": "ImageContentPart",
         "type": "object"
       },
       "IpUsageEntry": {
@@ -3565,6 +3623,27 @@
           "avg_response_seconds"
         ],
         "title": "StatsResponse",
+        "type": "object"
+      },
+      "TextContentPart": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 8000,
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "const": "text",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text"
+        ],
+        "title": "TextContentPart",
         "type": "object"
       },
       "TokenResponse": {
