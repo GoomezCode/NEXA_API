@@ -15,6 +15,7 @@ from tests.conftest import make_settings
 
 CHAT_URL = "http://ollama.test/api/chat"
 TAGS_URL = "http://ollama.test/api/tags"
+SHOW_URL = "http://ollama.test/api/show"
 MESSAGES = [
     ChatMessage(role="system", content="seja breve"),
     ChatMessage(role="user", content="oi"),
@@ -311,6 +312,9 @@ def test_provider_exposes_name_and_model() -> None:
 
 @respx.mock
 async def test_list_models_parses_tags_and_sorts_by_name() -> None:
+    respx.post(SHOW_URL).mock(
+        return_value=httpx.Response(200, json={"capabilities": ["completion", "vision"]})
+    )
     respx.get(TAGS_URL).mock(
         return_value=httpx.Response(
             200,
@@ -339,6 +343,7 @@ async def test_list_models_parses_tags_and_sorts_by_name() -> None:
 
     assert [model.name for model in models] == ["alpha:latest", "zeta:latest"]
     assert models[0].size_bytes == 42
+    assert models[0].capabilities is not None and models[0].capabilities.vision
     assert models[0].modified_at is None
     assert models[0].family is None
     assert models[1].size_bytes == 0
@@ -353,6 +358,9 @@ async def test_list_models_parses_tags_and_sorts_by_name() -> None:
 
 @respx.mock
 async def test_list_models_accepts_naive_dates_and_rejects_invalid_ones() -> None:
+    respx.post(SHOW_URL).mock(
+        return_value=httpx.Response(200, json={"capabilities": ["completion"]})
+    )
     respx.get(TAGS_URL).mock(
         return_value=httpx.Response(
             200,

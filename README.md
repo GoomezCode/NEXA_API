@@ -95,7 +95,7 @@ lista as variáveis lidas pela implementação atual.
 | `PERSONALIZATION_MAX_CHARS` | `6000` | Orçamento total de personalização |
 | `DEFAULT_SYSTEM_PROMPT` | vazio | Prompt de sistema padrão |
 | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Lockout de login |
-| `MAX_REQUEST_BODY_BYTES` | `2097152` | Teto do corpo (`413`) |
+| `MAX_REQUEST_BODY_BYTES` | `33554432` | Teto do corpo (`413`), comporta imagens de até 20 MB em base64 |
 | `TRUSTED_PROXIES` | vazio | CIDRs de proxies confiáveis |
 | `CORS_ORIGINS` | `http://localhost:5173` | Origens permitidas |
 | `UVICORN_WORKERS` | `1` | Processos; `> 1` exige `REDIS_URL` |

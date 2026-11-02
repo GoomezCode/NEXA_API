@@ -51,6 +51,13 @@ def _content_blocks(message: ChatMessage) -> list[dict[str, Any]]:
     blocks: list[dict[str, Any]] = []
     if message.content:
         blocks.append({"type": "text", "text": message.content})
+    for image in message.images:
+        blocks.append(
+            {
+                "type": "image",
+                "source": {"type": "base64", "media_type": image.media_type, "data": image.data},
+            }
+        )
     for call in message.tool_calls:
         blocks.append(
             {
@@ -439,7 +446,19 @@ def parse_models(data: object) -> list[ModelInfo]:
                     modified_at = modified_at.replace(tzinfo=UTC)
             except ValueError:
                 modified_at = None
-        models.append(ModelInfo(name=name, modified_at=modified_at, family="claude"))
+        supports_vision = name.lower().startswith(("claude-3", "claude-4"))
+        capabilities = Capabilities(
+            chat=True,
+            stream=True,
+            tools=True,
+            vision=supports_vision,
+            json_mode=False,
+        )
+        models.append(
+            ModelInfo(
+                name=name, modified_at=modified_at, family="claude", capabilities=capabilities
+            )
+        )
     models.sort(key=lambda model: model.name)
     return models
 

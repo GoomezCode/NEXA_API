@@ -35,6 +35,14 @@ class ToolCall:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageData:
+    """Imagem validada e decodificada recebida no contrato nativo."""
+
+    media_type: str
+    data: str  # base64 sem prefixo data:; necessário para os adapters dos provedores
+
+
+@dataclass(frozen=True, slots=True)
 class ChatMessage:
     """Mensagem no formato comum aceito por todos os provedores."""
 
@@ -42,6 +50,7 @@ class ChatMessage:
     content: str
     tool_calls: tuple[ToolCall, ...] = ()
     tool_call_id: str | None = None
+    images: tuple[ImageData, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

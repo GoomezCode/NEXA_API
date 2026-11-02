@@ -71,7 +71,20 @@ def _tool_calls(raw: object) -> tuple[ToolCall, ...]:
 
 
 def _message_payload(message: ChatMessage) -> dict[str, Any]:
-    payload: dict[str, Any] = {"role": message.role, "content": message.content}
+    content: str | list[dict[str, Any]] = message.content
+    if message.images:
+        blocks: list[dict[str, Any]] = []
+        if message.content:
+            blocks.append({"type": "text", "text": message.content})
+        blocks.extend(
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{image.media_type};base64,{image.data}"},
+            }
+            for image in message.images
+        )
+        content = blocks
+    payload: dict[str, Any] = {"role": message.role, "content": content}
     if message.tool_calls:
         payload["tool_calls"] = [
             {
@@ -411,7 +424,15 @@ def parse_models(data: object, *, label: str = "OpenAI") -> list[ModelInfo]:
         modified_at = None
         if isinstance(created, int) and not isinstance(created, bool):
             modified_at = datetime.fromtimestamp(created, tz=UTC)
-        models.append(ModelInfo(name=name, modified_at=modified_at))
+        vision_prefixes = ("gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-vision", "o1", "o3", "o4")
+        capabilities = Capabilities(
+            chat=True,
+            stream=True,
+            tools=True,
+            vision=name.lower().startswith(vision_prefixes),
+            json_mode=True,
+        )
+        models.append(ModelInfo(name=name, modified_at=modified_at, capabilities=capabilities))
     models.sort(key=lambda model: model.name)
     return models
 

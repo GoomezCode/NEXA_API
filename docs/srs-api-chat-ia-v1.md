@@ -831,6 +831,12 @@ O `usage` na emissão refere-se ao `gid` recém-criado; quando a cota do IP já 
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
 | `messages` | array | Sim | Lista completa do contexto; a última deve ser `role = user` |
+
+O campo `content` também aceita partes multimodais no formato `{ "type": "text", "text": "..." }` e `{ "type": "image", "media_type": "image/jpeg", "data": "<base64 sem prefixo data:>" }`. Cada mensagem aceita até quatro imagens PNG, JPEG, WebP ou GIF, com até 20 MB por imagem. O servidor valida o MIME pelos bytes recebidos e exige `vision` no modelo selecionado; a recusa ocorre antes do consumo de cota. O tamanho total HTTP padrão é 32 MiB (`MAX_REQUEST_BODY_BYTES`).
+
+```json
+{"role":"user","content":[{"type":"text","text":"Descreva a imagem."},{"type":"image","media_type":"image/jpeg","data":"/9j/..."}]}
+```
 | `stream` | booleano | Não | `true` (padrão): SSE; `false`: JSON completo |
 | `model` | string | Não | Model ID `provider/model` ou alias; omitido, usa `AI_DEFAULT_MODEL` |
 | `personalization` | objeto | Não | Nome de exibição e memórias a inserir em contexto servidor-gerado; limitado por `PERSONALIZATION_*` |

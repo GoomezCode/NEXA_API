@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -262,7 +263,46 @@ class OllamaProvider:
             raise ProviderUnavailable("Não foi possível conectar ao Ollama.") from exc
         except ValueError as exc:
             raise ProviderError("Resposta inválida do Ollama.") from exc
-        return parse_models(data)
+        models = parse_models(data)
+        async with httpx.AsyncClient(timeout=self._timeout()) as client:
+
+            async def with_capabilities(model: ModelInfo) -> ModelInfo:
+                try:
+                    response = await client.post(
+                        self._show_url,
+                        json={"model": model.name},
+                        headers=self._headers(request_id),
+                    )
+                    response.raise_for_status()
+                    details = response.json()
+                except (httpx.HTTPError, ValueError):
+                    details = {}
+                raw = details.get("capabilities") if isinstance(details, dict) else None
+                if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+                    # Ollama antigo: mantém chat funcional, mas nunca presume visão.
+                    return replace(
+                        model,
+                        capabilities=Capabilities(
+                            chat=True,
+                            stream=True,
+                            tools=True,
+                            vision=False,
+                            json_mode=True,
+                            context_window=model.context_window,
+                        ),
+                    )
+                available = set(raw)
+                capabilities = Capabilities(
+                    chat="completion" in available or "tools" in available,
+                    stream=True,
+                    tools="tools" in available,
+                    vision="vision" in available,
+                    json_mode=True,
+                    context_window=model.context_window,
+                )
+                return replace(model, capabilities=capabilities)
+
+            return list(await asyncio.gather(*(with_capabilities(model) for model in models)))
 
     async def count_tokens(
         self,
@@ -384,6 +424,8 @@ class OllamaProvider:
 def _message_payload(message: ChatMessage) -> dict[str, Any]:
     """Mensagem no formato do Ollama, incluindo chamadas de ferramenta."""
     payload: dict[str, Any] = {"role": message.role, "content": message.content}
+    if message.images:
+        payload["images"] = [image.data for image in message.images]
     if message.tool_calls:
         payload["tool_calls"] = [
             {"function": {"name": call.name, "arguments": dict(call.arguments)}}
