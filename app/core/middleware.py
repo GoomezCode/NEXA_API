@@ -177,7 +177,7 @@ class BodyLimitMiddleware:
 
 
 class ContentTypeMiddleware:
-    """Exige `application/json` em corpos não vazios (RNF-SEG-09, 415)."""
+    """Exige JSON, exceto WAV bruto na rota autenticada de voz (RNF-SEG-09, 415)."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -193,7 +193,9 @@ class ContentTypeMiddleware:
             return
 
         content_type = _header(scope, b"content-type")
-        if content_type is None or not _is_json_media_type(content_type):
+        if content_type is None or not (
+            _is_json_media_type(content_type) or _is_voice_wav(scope, content_type)
+        ):
             self.logger.warning(
                 "unsupported_media_type",
                 path=scope.get("path", ""),
@@ -211,6 +213,12 @@ def _is_json_media_type(value: str) -> bool:
     """Aceita `application/json` e sufixos `+json`, com parâmetros opcionais."""
     media_type = value.split(";", 1)[0].strip().lower()
     return media_type == "application/json" or media_type.endswith("+json")
+
+
+def _is_voice_wav(scope: Scope, value: str) -> bool:
+    """Permite WAV binário somente na rota de transcrição de voz autenticada."""
+    media_type = value.split(";", 1)[0].strip().lower()
+    return scope.get("path") == "/api/v1/voice/stt" and media_type == "audio/wav"
 
 
 def _has_body(scope: Scope) -> bool:

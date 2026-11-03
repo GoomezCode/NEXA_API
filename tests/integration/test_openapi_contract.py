@@ -30,6 +30,8 @@ EXPECTED_OPERATIONS: dict[str, set[str]] = {
     "/api/v1/auth/guest": {"post"},
     "/api/v1/usage": {"get"},
     "/api/v1/chat": {"post"},
+    "/api/v1/voice/health": {"get"},
+    "/api/v1/voice/stt": {"post"},
     "/api/v1/models": {"get"},
     "/api/v1/admin/stats": {"get"},
     "/api/v1/admin/db/status": {"get"},
@@ -58,6 +60,7 @@ PUBLIC_OPERATIONS = {
     ("/api/v1/auth/login", "post"),
     ("/api/v1/auth/register", "post"),
     ("/api/v1/auth/guest", "post"),
+    ("/api/v1/voice/health", "get"),
 }
 
 DOCUMENTED_EXAMPLE_SCHEMAS = (
@@ -169,6 +172,9 @@ def test_write_operations_document_the_request_body(client: TestClient) -> None:
             assert "requestBody" not in operation
             continue
         assert operation.get("requestBody"), f"POST {path} sem requestBody"
+        if path == "/api/v1/voice/stt":
+            assert "audio/wav" in operation["requestBody"]["content"]
+            continue
         assert "application/json" in operation["requestBody"]["content"]
 
 

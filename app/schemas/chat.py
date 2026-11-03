@@ -194,6 +194,10 @@ class ChatRequest(BaseModel):
 
     messages: list[ChatMessageInput] = Field(min_length=1)
     personalization: PersonalizationInput | None = Field(default=None)
+    voice_call: bool = Field(
+        default=False,
+        description="Indica que a última mensagem vem de transcrição automática de voz.",
+    )
     stream: bool = True
     model: str | None = Field(
         default=None,

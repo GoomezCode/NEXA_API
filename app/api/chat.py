@@ -61,6 +61,19 @@ def _build_context(
     context: list[ChatMessage] = []
     if settings.default_system_prompt:
         context.append(ChatMessage(role="system", content=settings.default_system_prompt))
+    if payload.voice_call:
+        context.append(
+            ChatMessage(
+                role="system",
+                content=(
+                    "A mensagem mais recente veio de reconhecimento automático de fala e pode "
+                    "conter palavras trocadas, erros fonéticos, hesitações ou trechos fora de "
+                    "ordem. Interprete a intenção provável usando o contexto, sem exigir uma "
+                    "transcrição perfeita. Se houver mais de uma interpretação plausível, faça "
+                    "uma pergunta curta para confirmar."
+                ),
+            )
+        )
     personalization = payload.personalization
     if personalization is not None:
         if len(personalization.memories) > settings.personalization_max_memories:

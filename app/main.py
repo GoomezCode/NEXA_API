@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.ai import AIProvider, build_registry, provider_label
 from app.ai.router import ProviderRouter
-from app.api import admin, auth, chat, models, provider_keys, system, usage, users
+from app.api import admin, auth, chat, models, provider_keys, system, usage, users, voice
 from app.compat.anthropic import router as anthropic_compat_router
 from app.compat.errors import CompatApiError, compat_error_handler
 from app.compat.ollama import router as ollama_compat_router
@@ -190,6 +190,9 @@ def create_app(
     app.state.provider_key_limiter = SlidingWindowLimiter(
         resolved_clock, limit=10, window_seconds=60
     )
+    app.state.voice_stt_limiter = SlidingWindowLimiter(
+        resolved_clock, limit=resolved.voice_stt_rate_limit_per_min, window_seconds=60
+    )
 
     # Pilha (de dentro para fora): ContentType → BodyLimit → CORS → RequestContext.
     # RequestContext é o mais externo para que *toda* resposta (inclusive
@@ -221,6 +224,7 @@ def create_app(
     app.include_router(admin.router)
     app.include_router(users.router)
     app.include_router(provider_keys.router)
+    app.include_router(voice.router)
     if resolved.compat_openai_enabled:
         app.include_router(openai_compat_router)
     if resolved.compat_anthropic_enabled:

@@ -96,7 +96,13 @@ lista as variáveis lidas pela implementação atual.
 | `PERSONALIZATION_MAX_SKILL_CHARS` | `12000` | Teto de caracteres para skills (guest/user: 6.000; admin: até este valor) |
 | `DEFAULT_SYSTEM_PROMPT` | vazio | Prompt de sistema padrão |
 | `LOGIN_MAX_ATTEMPTS` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Lockout de login |
-| `MAX_REQUEST_BODY_BYTES` | `33554432` | Teto do corpo (`413`), comporta imagens de até 20 MB em base64 |
+| `MAX_REQUEST_BODY_BYTES` | `33554432` | Teto geral do corpo (`413`), comporta imagens de até 20 MB em base64 |
+| `VOICE_STT_ENABLED` | `true` | Habilita o endpoint autenticado de transcrição WAV |
+| `VOICE_STT_MODEL` | `small` | Modelo faster-whisper, carregado na primeira transcrição |
+| `VOICE_STT_DEVICE` / `VOICE_STT_COMPUTE_TYPE` | `cpu` / `int8` | Hardware e precisão do modelo STT |
+| `VOICE_STT_MODEL_DIR` | `./data/voice-models` | Cache dos pesos Whisper (não armazena gravações) |
+| `VOICE_STT_MAX_AUDIO_BYTES` | `16777216` | Limite específico por áudio WAV |
+| `VOICE_STT_RATE_LIMIT_PER_MIN` | `20` | Limite de transcrições por usuário autenticado |
 | `TRUSTED_PROXIES` | vazio | CIDRs de proxies confiáveis |
 | `CORS_ORIGINS` | `http://localhost:5173` | Origens permitidas |
 | `UVICORN_WORKERS` | `1` | Processos; `> 1` exige `REDIS_URL` |
@@ -171,6 +177,8 @@ Produção (mesma entrada usada no contêiner):
 | POST | `/api/v1/auth/guest` | Emite token de convidado (`gid` + `usage`) |
 | GET | `/api/v1/usage` | Limites e uso restante do chamador |
 | POST | `/api/v1/chat` | Chat (JSON ou SSE) |
+| GET | `/api/v1/voice/health` | Disponibilidade do STT sem carregar o modelo |
+| POST | `/api/v1/voice/stt` | Transcrição autenticada de áudio WAV em memória |
 | GET | `/api/v1/models` | Catálogo multi-provedor (inclui origem da chave); NVIDIA lista apenas modelos LLM documentados para chat |
 | GET | `/api/v1/me/providers` | Lista chaves BYOK mascaradas |
 | PUT | `/api/v1/me/providers/{provider}` | Salva/atualiza uma chave BYOK; NVIDIA aceita URL base opcional |
@@ -204,6 +212,12 @@ Produção (mesma entrada usada no contêiner):
 | GET | `/api/tags` | Compatível Ollama |
 | POST | `/api/show` | Compatível Ollama |
 | GET | `/api/ps` | Compatível Ollama |
+
+### Transcrição de voz
+
+`POST /api/v1/voice/stt` recebe o corpo como `audio/wav` (PCM mono), exige Bearer token e devolve `{ "text": "..." }`. O áudio é processado em memória; os pesos do Whisper são armazenados em `VOICE_STT_MODEL_DIR` e carregados sob demanda. A inferência roda em thread de trabalho para não bloquear o event loop e é serializada para limitar concorrência de memória/CPU. O frontend encaminha áudio capturado à API configurada; portanto, em produção, o áudio chega ao servidor NEXA.
+
+`POST /api/v1/chat` aceita `voice_call: true` para marcar a última mensagem como transcrição automática. Nesse caso a API adiciona orientação de interpretação ao contexto de sistema, preservando o texto original do usuário no histórico.
 
 Personalização opcional no chat (`display_name` e memórias ativas) é validada e
 transformada em contexto de sistema pela API. O uso BYOK não reduz a cota diária,
