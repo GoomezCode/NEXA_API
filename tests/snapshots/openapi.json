@@ -966,6 +966,12 @@
             ],
             "description": "Ferramentas disponíveis; exige a capacidade `tools`.",
             "title": "Tools"
+          },
+          "voice_call": {
+            "default": false,
+            "description": "Indica que a última mensagem vem de transcrição automática de voz.",
+            "title": "Voice Call",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3009,6 +3015,13 @@
               "content": "Prefere respostas diretas.",
               "title": "Preferências"
             }
+          ],
+          "skills": [
+            {
+              "description": "Ao enviar código",
+              "instructions": "Revise bugs e clareza.",
+              "name": "Revisor"
+            }
           ]
         },
         "properties": {
@@ -3030,6 +3043,14 @@
             },
             "maxItems": 50,
             "title": "Memories",
+            "type": "array"
+          },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/PersonalizationSkill"
+            },
+            "maxItems": 12,
+            "title": "Skills",
             "type": "array"
           }
         },
@@ -3058,6 +3079,42 @@
           "content"
         ],
         "title": "PersonalizationMemory",
+        "type": "object"
+      },
+      "PersonalizationSkill": {
+        "additionalProperties": false,
+        "description": "Instrução de comportamento fornecida pelo usuário.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "instructions": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Instructions",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "instructions"
+        ],
+        "title": "PersonalizationSkill",
         "type": "object"
       },
       "ProviderKeyInput": {
@@ -3780,6 +3837,21 @@
         "title": "ToolFunction",
         "type": "object"
       },
+      "TranscriptionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "description": "Texto reconhecido da fala.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TranscriptionResponse",
+        "type": "object"
+      },
       "UsageInfo": {
         "additionalProperties": false,
         "description": "Limites e uso restante do chamador (SRS §3.7.2).",
@@ -4430,6 +4502,33 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VoiceHealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "description": "Modelo carregado sob demanda na primeira transcrição.",
+            "title": "Model",
+            "type": "string"
+          },
+          "status": {
+            "description": "Disponibilidade configurada da transcrição de voz.",
+            "title": "Status",
+            "type": "string"
+          },
+          "stt": {
+            "description": "Se a transcrição está habilitada nesta API.",
+            "title": "Stt",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "stt",
+          "model"
+        ],
+        "title": "VoiceHealthResponse",
         "type": "object"
       }
     },
@@ -5783,6 +5882,93 @@
         "summary": "Limites e uso restante",
         "tags": [
           "Uso"
+        ]
+      }
+    },
+    "/api/v1/voice/health": {
+      "get": {
+        "description": "Consulta a configuração do STT sem carregar o modelo nem decodificar áudio.",
+        "operationId": "voice_health_api_v1_voice_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceHealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Disponibilidade da transcrição de voz",
+        "tags": [
+          "Voz"
+        ]
+      }
+    },
+    "/api/v1/voice/stt": {
+      "post": {
+        "description": "Recebe áudio WAV mono como `audio/wav`, autentica o usuário e executa o Whisper em uma thread de trabalho. O áudio é decodificado em memória e não é persistido.",
+        "operationId": "transcribe_api_v1_voice_stt_post",
+        "requestBody": {
+          "content": {
+            "audio/wav": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "description": "Áudio mono PCM em WAV.",
+                "title": "Audio",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Token ausente ou inválido."
+          },
+          "413": {
+            "description": "O áudio excede o limite configurado."
+          },
+          "415": {
+            "description": "Envie um áudio com o tipo `audio/wav`."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "Limite de transcrições excedido."
+          },
+          "503": {
+            "description": "O serviço de transcrição está indisponível."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Transcreve fala em português",
+        "tags": [
+          "Voz"
         ]
       }
     },

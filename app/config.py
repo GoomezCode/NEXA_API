@@ -99,6 +99,13 @@ class Settings(BaseSettings):
     login_max_attempts: int = Field(default=5, ge=1)
     login_lock_minutes: int = Field(default=15, ge=1)
     max_request_body_bytes: int = Field(default=DEFAULT_MAX_REQUEST_BODY_BYTES, gt=0)
+    voice_stt_enabled: bool = True
+    voice_stt_model: str = "small"
+    voice_stt_device: Literal["cpu", "cuda"] = "cpu"
+    voice_stt_compute_type: str = "int8"
+    voice_stt_model_dir: str = "./data/voice-models"
+    voice_stt_max_audio_bytes: int = Field(default=16 * 1024 * 1024, gt=0)
+    voice_stt_rate_limit_per_min: int = Field(default=20, ge=1)
     shutdown_timeout_seconds: float = Field(default=30.0, gt=0)
     trusted_proxies: Annotated[list[str], NoDecode] = Field(default_factory=list)
     cors_origins: Annotated[list[str], NoDecode] = Field(
@@ -184,6 +191,7 @@ class Settings(BaseSettings):
     personalization_max_memories: int = Field(default=20, ge=0, le=50)
     personalization_max_memory_chars: int = Field(default=4000, ge=1)
     personalization_max_chars: int = Field(default=6000, ge=1)
+    personalization_max_skill_chars: int = Field(default=12000, ge=1)
     test_user_default_daily_messages: int = Field(default=100, ge=0)
     test_user_default_rate_per_min: int = Field(default=10, ge=1)
     test_user_ttl_hours: int = Field(default=168, ge=0)

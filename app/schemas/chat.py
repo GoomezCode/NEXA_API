@@ -134,6 +134,16 @@ class PersonalizationMemory(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
 
 
+class PersonalizationSkill(BaseModel):
+    """Instrução de comportamento fornecida pelo usuário."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=60)
+    description: str | None = Field(default=None, max_length=200)
+    instructions: str = Field(min_length=1, max_length=4000)
+
+
 class PersonalizationInput(BaseModel):
     """Campos controlados pelo servidor para personalizar o contexto."""
 
@@ -143,12 +153,20 @@ class PersonalizationInput(BaseModel):
             "example": {
                 "display_name": "Marina",
                 "memories": [{"title": "Preferências", "content": "Prefere respostas diretas."}],
+                "skills": [
+                    {
+                        "name": "Revisor",
+                        "description": "Ao enviar código",
+                        "instructions": "Revise bugs e clareza.",
+                    }
+                ],
             }
         },
     )
 
     display_name: str | None = Field(default=None, max_length=60)
     memories: list[PersonalizationMemory] = Field(default_factory=list, max_length=50)
+    skills: list[PersonalizationSkill] = Field(default_factory=list, max_length=12)
 
     @field_validator("display_name")
     @classmethod
@@ -176,6 +194,10 @@ class ChatRequest(BaseModel):
 
     messages: list[ChatMessageInput] = Field(min_length=1)
     personalization: PersonalizationInput | None = Field(default=None)
+    voice_call: bool = Field(
+        default=False,
+        description="Indica que a última mensagem vem de transcrição automática de voz.",
+    )
     stream: bool = True
     model: str | None = Field(
         default=None,
